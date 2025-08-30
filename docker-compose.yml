@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: spi-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - spi_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./docker
+      dockerfile: backend.Dockerfile
+    container_name: spi-backend
+    env_file: .env
+    depends_on:
+      - postgres
+      - ml
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/app
+    working_dir: /app
+    command: sh -c "npm i && npm run migrate && npm run dev"
+
+  ml:
+    build:
+      context: ./docker
+      dockerfile: ml.Dockerfile
+    container_name: spi-ml
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app
+    working_dir: /app
+    command: sh -c "pip install -r requirements.txt && uvicorn src.app:app --host 0.0.0.0 --port 8000 --reload"
+
+  frontend:
+    build:
+      context: ./docker
+      dockerfile: frontend.Dockerfile
+    container_name: spi-frontend
+    env_file: .env
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+    working_dir: /app
+    command: sh -c "npm i && npm run dev -- --host"
+
+volumes:
+  spi_pg:

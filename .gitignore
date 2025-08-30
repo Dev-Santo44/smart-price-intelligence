@@ -1,0 +1,27 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
+dist/
+.build/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+.venv*/
+
+# Others
+.DS_Store
+*.sqlite
+*.db
+*.log
+*.pid
+coverage/
+.cache
+.vscode/
+.idea/
