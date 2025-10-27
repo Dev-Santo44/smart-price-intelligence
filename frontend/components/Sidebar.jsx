@@ -26,8 +26,8 @@ export default function Sidebar() {
 
     const roleBasedLinks = {
         admin: [
-            { href: "/dashboard/admin", label: "User Management", icon: Users },
-            { href: "/dashboard/admin/system", label: "System Health", icon: Cpu },
+            { href: "/dashboard/admin", label: "Admin", icon: Users },
+            { href: "/dashboard/admin/system", label: "System ", icon: Cpu },
             { href: "/settings", label: "Settings", icon: Settings },
         ],
         analyst: [
