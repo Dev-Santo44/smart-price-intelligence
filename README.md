@@ -12,11 +12,10 @@ A B2B platform for competitor-aware price analysis and optimized price recommend
 - **Scheduler**: node-cron (backend; replace with BullMQ/Redis later if needed)
 
 ## Quick Start (Docker)
+- Add enviornment Variable file in project folder
+- **Download Docker**: Login to docker
 ```bash
-# 1) Copy env example and edit secrets
-cp .env.example .env
-
-# 2) Build & run all services
+# 1) Build & run all services
 docker compose up --build
 ```
 

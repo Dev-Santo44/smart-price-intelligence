@@ -18,45 +18,41 @@ services:
 
   backend:
     build:
-      context: ./docker
-      dockerfile: backend.Dockerfile
-    container_name: spi-backend
-    env_file: .env
-    depends_on:
-      - postgres
-      - ml
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./backend:/app
-    working_dir: /app
-    command: sh -c "npm i && npm run migrate && npm run dev"
-
-  ml:
-    build:
-      context: ./docker
-      dockerfile: ml.Dockerfile
-    container_name: spi-ml
-    env_file: .env
+      context: .
+      dockerfile: Dockerfile
+    container_name: flask-backend
+    restart: always
+    env_file:
+      - ./.env
     ports:
       - "8000:8000"
     volumes:
-      - ./models:/app
-    working_dir: /app
-    command: sh -c "pip install -r requirements.txt && uvicorn src.app:app --host 0.0.0.0 --port 8000 --reload"
+      - ./backend:/app
+  
+
+  # ml:
+  #   build:
+  #     context: ./docker
+  #     dockerfile: ml.Dockerfile
+  #   container_name: spi-ml
+  #   env_file: .env
+  #   ports:
+  #     - "8000:8000"
+  #   volumes:
+  #     - ./models:/app
+  #   working_dir: /app
+  #   command: sh -c "pip install -r requirements.txt && uvicorn src.app:app --host 0.0.0.0 --port 8000 --reload"
 
   frontend:
-    build:
-      context: ./docker
-      dockerfile: frontend.Dockerfile
-    container_name: spi-frontend
-    env_file: .env
+    build: ./frontend
+    container_name: smart-price-frontend
     ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-    working_dir: /app
-    command: sh -c "npm i && npm run dev -- --host"
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:5000
+    depends_on:
+      - backend
+    
 
 volumes:
   spi_pg:

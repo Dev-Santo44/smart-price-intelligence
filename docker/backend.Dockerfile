@@ -1,7 +1,20 @@
-FROM node:20-alpine
+# Use lightweight Python image
+FROM python:3.11-slim
+
+# Set working directory
 WORKDIR /app
-COPY backend/package.json /app/package.json
-RUN npm i --quiet || true
+
+# Copy requirements first (for caching)
+COPY backend/requirements.txt /app/requirements.txt
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy backend source code
 COPY backend /app
-EXPOSE 8080
-CMD ["npm","run","dev"]
+
+# Expose port (same as Flask runs on)
+EXPOSE 8000
+
+# Run Flask
+CMD ["python", "app.py"]
