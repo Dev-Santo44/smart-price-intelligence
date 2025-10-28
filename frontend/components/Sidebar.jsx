@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import {
     LayoutDashboard,
+    ChartNoAxesCombined,
     BarChart2,
     Bell,
     Settings,
@@ -26,13 +27,26 @@ export default function Sidebar() {
 
     const roleBasedLinks = {
         admin: [
-            { href: "/dashboard/admin", label: "Admin", icon: Users },
+            { href: "/dashboard/userManagement", label: "User Management", icon: Users },
             { href: "/dashboard/admin/system", label: "System ", icon: Cpu },
             { href: "/settings", label: "Settings", icon: Settings },
+
+            { href: "/dashboard/analyst", label: "Pricing Analytics", icon: BarChart2 },
+            { href: "/dashboard/analyst/recommendations", label: "Recommendations", icon: Cpu },
+            { href: "/dashboard/analyst/competitor", label: "Competitor Monitoring", icon: ChartNoAxesCombined },
+
+            { href: "/dashboard/executive", label: "Strategic Insights", icon: BarChart2 },
+            { href: "/reports", label: "Reports", icon: Database },
+
+            { href: "/dashboard/data-engineer", label: "ETL Pipelines", icon: Database },
+            { href: "/dashboard/data-engineer/quality", label: "Data Quality", icon: Cpu },
+
         ],
         analyst: [
             { href: "/dashboard/analyst", label: "Pricing Analytics", icon: BarChart2 },
             { href: "/dashboard/analyst/recommendations", label: "Recommendations", icon: Cpu },
+            { href: "/dashboard/analyst/competitor", label: "Competitor Monitoring", icon: ChartNoAxesCombined },
+
         ],
         executive: [
             { href: "/dashboard/executive", label: "Strategic Insights", icon: BarChart2 },

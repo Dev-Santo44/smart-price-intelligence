@@ -1,62 +1,77 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { onAuthStateChanged, User, signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
 
-type User = {
-    name: string;
+interface UserProfile {
+    uid: string;
     email: string;
-    role: "admin" | "analyst" | "executive" | "engineer";
-};
+    name?: string;
+    employeeNumber?: string;
+    role?: string;
+}
 
-type AuthContextType = {
+interface AuthContextType {
     user: User | null;
-    role: string;
-    login: (userData: User) => void;
-    logout: () => void;
-};
+    profile: UserProfile | null;
+    loading: boolean;
+    logout: () => Promise<void>;
+}
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
+    const [profile, setProfile] = useState<UserProfile | null>(null);
+    const [loading, setLoading] = useState(true);
+    const router = useRouter();
 
-    // Load saved user from localStorage on mount
     useEffect(() => {
-        const savedUser = localStorage.getItem("spi_user");
-        if (savedUser) {
-            setUser(JSON.parse(savedUser));
-        } else {
-            // Temporary mock login (for development)
-            const defaultUser = {
-                name: "Santo",
-                email: "santo@example.com",
-                role: "admin" as const,
-            };
-            setUser(defaultUser);
-            localStorage.setItem("spi_user", JSON.stringify(defaultUser));
-        }
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            if (firebaseUser) {
+                setUser(firebaseUser);
+
+                // 🔹 Fetch Firestore user data
+                const userRef = doc(db, "users", firebaseUser.uid);
+                const userSnap = await getDoc(userRef);
+                if (userSnap.exists()) {
+                    setProfile(userSnap.data() as UserProfile);
+                } else {
+                    // fallback if no Firestore profile found
+                    setProfile({
+                        uid: firebaseUser.uid,
+                        email: firebaseUser.email || "",
+                    });
+                }
+            } else {
+                setUser(null);
+                setProfile(null);
+            }
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
     }, []);
 
-    const login = (userData: User) => {
-        setUser(userData);
-        localStorage.setItem("spi_user", JSON.stringify(userData));
-    };
-
-    const logout = () => {
+    const logout = async () => {
+        await signOut(auth);
         setUser(null);
-        localStorage.removeItem("spi_user");
+        setProfile(null);
+        router.push("/login");
     };
 
     return (
-        <AuthContext.Provider value={{ user, role: user?.role || "guest", login, logout }}>
+        <AuthContext.Provider value={{ user, profile, loading, logout }}>
             {children}
         </AuthContext.Provider>
     );
 }
 
-// Custom Hook
 export function useAuth() {
-    const ctx = useContext(AuthContext);
-    if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-    return ctx;
+    const context = useContext(AuthContext);
+    if (!context) throw new Error("useAuth must be used inside AuthProvider");
+    return context;
 }
