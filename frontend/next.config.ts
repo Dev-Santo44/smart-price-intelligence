@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['react-bootstrap'],
   },
-  allowedDevOrigins: ['local-origin.dev', '*.local-origin.dev'],
+  // allowedDevOrigins: ['local-origin.dev', '*.local-origin.dev'],
 
 };
 
