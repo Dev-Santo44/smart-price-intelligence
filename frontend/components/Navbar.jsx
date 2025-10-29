@@ -16,14 +16,7 @@ export default function Navbar() {
     const { user } = useAuth();
     const { profile, logout, loading } = useAuth();
     const router = useRouter();
-    const handleLogout = async () => {
-        try {
-            await signOut(auth);
-            router.push("/")
-        } catch (error) {
-            console.error("Error signing out:", error);
-        }
-    };
+    
 
     const handleLogIn = () => {
         router.push('/login')
