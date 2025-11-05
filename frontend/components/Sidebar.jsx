@@ -89,7 +89,7 @@ export default function Sidebar() {
         >
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
-                <span className={`text-lg font-semibold ${collapsed ? "hidden" : "block"}`}>
+                <span className={`text-gray-700 font-semibold ${collapsed ? "hidden" : "block"}`}>
                     {profile.domain ? profile.domain.toUpperCase() : "MENU"}
                 </span>
                 <button

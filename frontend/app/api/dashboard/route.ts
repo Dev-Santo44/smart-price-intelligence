@@ -1,0 +1,36 @@
+// app/api/dashboard/route.ts
+import { NextResponse } from "next/server";
+
+const KPIS = [
+    { id: "products", title: "Products Monitored", value: 1256, delta: 3.4 },
+    { id: "competitors", title: "Active Competitors", value: 24, delta: -1.2 },
+    { id: "recommendations", title: "Pending Recommendations", value: 18, delta: 5.1 },
+    { id: "opportunities", title: "Pricing Opportunities", value: 9, delta: 12.3 }
+];
+
+const PRICE_SERIES = [
+    { date: "2025-10-01", your: 99.0, competitor: 101.2 },
+    { date: "2025-10-05", your: 98.5, competitor: 100.7 },
+    { date: "2025-10-10", your: 98.9, competitor: 99.6 },
+    { date: "2025-10-15", your: 97.9, competitor: 98.8 },
+    { date: "2025-10-20", your: 96.8, competitor: 100.0 },
+    { date: "2025-10-25", your: 97.3, competitor: 99.2 },
+    { date: "2025-10-30", your: 96.5, competitor: 98.7 }
+];
+
+const RECENT_PRICE_CHANGES = [
+    { product_id: "P-1001", name: "Wireless Headphones X1", your_price: 96.5, competitor: "BrandZ", competitor_price: 98.7, change_pct: -2.3, timestamp: "2025-10-30T10:15:00Z" },
+    { product_id: "P-1002", name: "Smart Speaker Plus", your_price: 129.0, competitor: "EchoMax", competitor_price: 125.0, change_pct: 3.1, timestamp: "2025-10-29T09:12:00Z" },
+    { product_id: "P-1003", name: "Fitness Band A2", your_price: 45.5, competitor: "FitPro", competitor_price: 47.0, change_pct: -1.5, timestamp: "2025-10-28T14:00:00Z" }
+];
+
+const RECOMMENDATIONS = [
+    { id: "R-2001", product: "Wireless Headphones X1", impact: "+1.2% margin", priority: "High", confidence: 0.92 },
+    { id: "R-2002", product: "Smart Speaker Plus", impact: "+0.8% margin", priority: "Medium", confidence: 0.78 },
+    { id: "R-2003", product: "Fitness Band A2", impact: "+2.5% margin", priority: "Low", confidence: 0.66 }
+];
+
+export async function GET() {
+    const payload = { kpis: KPIS, priceSeries: PRICE_SERIES, recent: RECENT_PRICE_CHANGES, recommendations: RECOMMENDATIONS };
+    return NextResponse.json(payload, { status: 200 });
+}
