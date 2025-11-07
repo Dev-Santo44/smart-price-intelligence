@@ -1,12 +1,12 @@
 "use client";
 
-import "@/app/globals.css" ;
+import "@/app/globals.css";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { AuthProvider } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import { usePathname } from "next/navigation";
-
+import { Providers } from "./provider";
 const noLayoutRoutes = ["/login", "/register"];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -30,7 +30,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Sidebar />
                 <div className="flex flex-col flex-1">
                   <Navbar />
-                  <main className="flex-1 overflow-y-auto p-4">{children}</main>
+                  <Providers>
+                    <main className="flex-1 overflow-y-auto p-4">{children}</main>
+                  </Providers>
                 </div>
               </div>
             )}
