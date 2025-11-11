@@ -22,3 +22,26 @@ export async function GET(request: Request, context: { params: any }) {
     return NextResponse.json({ error: "Server error", details: String(err) }, { status: 500 });
   }
 }
+
+export async function PUT(req, { params }) {
+  const id = params.id;
+  try {
+    const body = await req.json();
+    const idx = STORE.findIndex(s => s.id === id);
+    if (idx === -1) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    // update fields (allow partial)
+    STORE[idx] = { ...STORE[idx], ...body };
+    return NextResponse.json(STORE[idx]);
+  } catch (err) {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+}
+
+
+export async function DELETE(req, { params }) {
+  const id = params.id;
+  const idx = STORE.findIndex(s => s.id === id);
+  if (idx === -1) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  const removed = STORE.splice(idx, 1)[0];
+  return NextResponse.json({ success: true, removed });
+}
