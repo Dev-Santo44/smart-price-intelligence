@@ -42,22 +42,55 @@ export default function SettingsPage() {
         if (!row.product_id || !row.name || row.your_price === undefined || row.your_price === "" || !row.timestamp) return false;
         if (isNaN(Number(row.your_price))) return false;
         return true;
-    } async function handleAddManual(e) {
+    }
+    async function handleAddManual(e) {
+        e.preventDefault(); // important — stops default form submit that creates a GET/POST to current page
+        // validation
+        if (!validateRow(form)) {
+            addMessage("Please provide Product ID, Name, your_price (number) and timestamp.", "error");
+            return;
+        }
 
+        const payload = {
+            product_id: String(form.product_id).trim(),
+            name: String(form.name).trim(),
+            your_price: Number(form.your_price),
+            timestamp: String(form.timestamp).trim(),
+            domain: form.domain ? String(form.domain).trim() : null,
+        };
 
-        const payload = { ...form, your_price: Number(form.your_price) };
+        console.log("Sending POST /api/products payload:", payload); // <-- check browser console
+
         try {
-            const res = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (!res.ok) throw new Error('Failed');
-            const newProd = await res.json();
-            setProducts((p) => [newProd, ...p]);
-            setForm({ product_id: "", name: "", your_price: "", timestamp: "", domain: "" });
+            const res = await fetch('/api/products', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            const json = await res.json();
+            console.log('POST /api/products response:', json); // <-- check browser console
+
+            if (!res.ok) {
+                addMessage(`Server error: ${json?.error || res.statusText}`, 'error');
+                return;
+            }
+
+            // If API returns inserted rows (array or object)
+            const inserted = json.inserted ?? json; // adapt depending on your server response shape
+            if (Array.isArray(inserted)) {
+                setProducts(p => [...inserted, ...p]);
+            } else {
+                setProducts(p => [inserted, ...p]);
+            }
+            setForm({ product_id: '', name: '', your_price: '', timestamp: '', domain: '' });
             addMessage('Product added.', 'success');
         } catch (err) {
-            addMessage('Failed to add product (API). See console.', 'error');
-            console.error(err);
+            console.error('Add product error:', err);
+            addMessage('Failed to add product (network/error). See console.', 'error');
         }
     }
+
 
 
     function handleCSVUpload(e) {
@@ -68,48 +101,78 @@ export default function SettingsPage() {
             const text = ev.target.result;
             const lines = text.split(/\r?\n/).filter(Boolean);
             if (!lines.length) { addMessage('CSV is empty', 'error'); return; }
-            const headers = lines[0].split(',').map(h => h.trim());
-            const expected = ['product id', 'name', 'your_price', 'timestamp'];
-            const found = headers.map(h => h.toLowerCase());
-            const missing = expected.filter(r => !found.includes(r));
-            if (missing.length) { addMessage('CSV must contain headers: Product ID, Name, your_price, timestamp', 'error'); return; }
 
+            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+            const idx = {};
+            headers.forEach((h, i) => idx[h] = i);
 
-            const idx = {}; headers.forEach((h, i) => idx[h.toLowerCase()] = i);
+            // required header names (lowercase)
+            const required = ['product id', 'name', 'your_price', 'timestamp'];
+            const missing = required.filter(r => !headers.includes(r) && !headers.includes(r.replace(' ', '_')));
+            if (missing.length) {
+                addMessage(`CSV headers missing: ${missing.join(', ')}`, 'error');
+                return;
+            }
+
             const rows = lines.slice(1).map(line => {
                 const cols = line.split(',').map(c => c.trim());
                 return {
-                    product_id: cols[idx['product id']] || '',
-                    name: cols[idx['name']] || '',
-                    your_price: cols[idx['your_price']] || '',
-                    timestamp: cols[idx['timestamp']] || ''
+                    product_id: cols[idx['product id']] ?? cols[idx['product_id']] ?? '',
+                    name: cols[idx['name']] ?? '',
+                    your_price: cols[idx['your_price']] ?? cols[idx['your price']] ?? '',
+                    timestamp: cols[idx['timestamp']] ?? '',
+                    domain: form.domain || null, // optional default domain from UI
                 };
             });
-            const good = [];
-            const bad = [];
-            for (let i = 0; i < rows.length; i++) {
-                if (validateRow(rows[i])) good.push(rows[i]); else bad.push(i + 2);
+
+            const good = [], badLines = [];
+            rows.forEach((r, i) => {
+                if (validateRow(r)) good.push({
+                    product_id: String(r.product_id).trim(),
+                    name: String(r.name).trim(),
+                    your_price: Number(r.your_price),
+                    timestamp: String(r.timestamp).trim(),
+                    domain: r.domain || null
+                });
+                else badLines.push(i + 2);
+            });
+
+            if (!good.length) {
+                addMessage('No valid rows to import.', 'error');
+                return;
             }
 
+            console.log('Bulk import payload:', good); // <-- check browser console
 
-            if (good.length) {
-                // send bulk create to API (stub supports single creates for demo)
-                for (const r of good) {
-                    try {
-                        const res = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...r, your_price: Number(r.your_price) }) });
-                        if (res.ok) {
-                            const np = await res.json();
-                            setProducts(p => [np, ...p]);
-                        }
-                    } catch (err) { console.error(err); }
+            // send bulk as a single POST (server route supports array)
+            try {
+                const res = await fetch('/api/products', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(good),
+                });
+                const json = await res.json();
+                console.log('Bulk import response:', json);
+
+                if (!res.ok) {
+                    addMessage(`Import failed: ${json?.error || res.statusText}`, 'error');
+                    return;
                 }
+
+                const inserted = json.inserted ?? json;
+                if (Array.isArray(inserted)) setProducts(p => [...inserted, ...p]);
                 addMessage(`${good.length} product(s) imported.`, 'success');
+                if (badLines.length) addMessage(`Invalid rows at lines: ${badLines.join(', ')}`, 'error');
+            } catch (err) {
+                console.error('CSV import error:', err);
+                addMessage('Failed to import CSV (network/error). See console.', 'error');
             }
-            if (bad.length) addMessage(`Invalid rows at lines: ${bad.join(', ')}`, 'error');
         };
+
         reader.readAsText(file);
         e.target.value = null;
     }
+
 
 
     async function handleDelete(id) {

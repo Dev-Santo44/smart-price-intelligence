@@ -54,7 +54,7 @@ export async function getProductById(productId: string) {
     const { data, error } = await supabaseAdmin
         .from<ProductRow>("products")
         .select("id,name,sku,category,current_price,updated_at")
-        .eq("id", productId)
+        .eq("product_id", productId)
         .single();
 
     if (error) throw error;

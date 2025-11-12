@@ -1,47 +1,103 @@
-// app/api/products/[productId]/route.ts
-import { NextResponse } from "next/server";
+// app/api/products/[id]/route.js
+import { NextResponse } from 'next/server';
+import { supabaseAdmin } from './../../../../lib/server/supabaseAdmin'; // adjust path to your lib
 
-const PRODUCTS: Record<string, any> = {
-  "P-1001": { product_id: "P-1001", name: "Wireless Headphones X1", description: "Top-tier sound, ANC", cost: 70.0, msrp: 129.0 },
-  "P-1002": { product_id: "P-1002", name: "Smart Speaker Plus", description: "Voice assistant enabled", cost: 85.0, msrp: 149.0 },
-  "P-1003": { product_id: "P-1003", name: "Fitness Band A2", description: "Heart-rate + sleep tracking", cost: 20.0, msrp: 59.0 }
+// simple UUID v4 check
+const isUUID = (s) => {
+  if (!s || typeof s !== 'string') return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 };
 
-export async function GET(request: Request, context: { params: any }) {
+// helper to resolve id: prefer params.id, else fallback to ?product_id=...
+ function resolveId(req, params) {
+  // const resolved = await params
+  const paramId = params?.productId;
+  if (paramId) return paramId;
   try {
-    // IMPORTANT: await params before using it
-    const { productId } = await context.params;
-    const product = PRODUCTS[productId] ?? null;
+    const url = new URL(req.url);
+    const q = url.searchParams.get('product_id') ?? url.searchParams.get('id');
+    if (q) return q   ;
+  } catch (e) {
+    // ignore
+  }
+  return null;
+}
 
-    if (!product) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+export async function GET(req, { params }) {
+  try {
+    const idParam = resolveId(req, params);
+    if (!idParam) return NextResponse.json({ error: 'Missing id parameter (pass in path or ?product_id=...)' }, { status: 400 });
+
+    if (isUUID(idParam)) {
+      const { data, error } = await supabaseAdmin.from('products').select('*').eq('id', idParam).maybeSingle();
+      if (error) return NextResponse.json({ error: error.message || 'DB error' }, { status: 500 });
+      if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return NextResponse.json(data);
+    } else {
+      const { data, error } = await supabaseAdmin.from('products').select('*').eq('product_id', idParam).limit(1).maybeSingle();
+      if (error) return NextResponse.json({ error: error.message || 'DB error' }, { status: 500 });
+      if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return NextResponse.json(data);
     }
-
-    return NextResponse.json({ product }, { status: 200 });
   } catch (err) {
-    return NextResponse.json({ error: "Server error", details: String(err) }, { status: 500 });
+    console.error('GET single product unexpected', err);
+    return NextResponse.json({ error: err?.message || 'Server error' }, { status: 500 });
   }
 }
 
 export async function PUT(req, { params }) {
-  const id = params.id;
   try {
-    const body = await req.json();
-    const idx = STORE.findIndex(s => s.id === id);
-    if (idx === -1) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    // update fields (allow partial)
-    STORE[idx] = { ...STORE[idx], ...body };
-    return NextResponse.json(STORE[idx]);
+    const idParam = resolveId(req, params);
+    if (!idParam) return NextResponse.json({ error: 'Missing id parameter (pass in path or ?product_id=...)' }, { status: 400 });
+
+    const body = await req.json().catch(() => null);
+    if (!body) return NextResponse.json({ error: 'Invalid or empty JSON body' }, { status: 400 });
+
+    const updates = {};
+    if (body.product_id !== undefined) updates.product_id = String(body.product_id).trim();
+    if (body.name !== undefined) updates.name = String(body.name).trim();
+    if (body.your_price !== undefined) updates.your_price = Number(body.your_price);
+    if (body.timestamp !== undefined) {
+      const ts = new Date(String(body.timestamp));
+      if (isNaN(ts.getTime())) return NextResponse.json({ error: 'Invalid timestamp' }, { status: 400 });
+      updates.timestamp = ts.toISOString();
+    }
+    if (body.domain !== undefined) updates.domain = body.domain ? String(body.domain).trim() : null;
+
+    if (Object.keys(updates).length === 0) return NextResponse.json({ error: 'No updatable fields provided' }, { status: 400 });
+
+    let res;
+    if (isUUID(idParam)) {
+      res = await supabaseAdmin.from('products').update(updates).eq('id', idParam).select().maybeSingle();
+    } else {
+      res = await supabaseAdmin.from('products').update(updates).eq('product_id', idParam).select();
+    }
+
+    if (res.error) return NextResponse.json({ error: res.error.message || 'DB error' }, { status: 500 });
+    return NextResponse.json(res.data);
   } catch (err) {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    console.error('PUT single product unexpected', err);
+    return NextResponse.json({ error: err?.message || 'Server error' }, { status: 500 });
   }
 }
 
-
 export async function DELETE(req, { params }) {
-  const id = params.id;
-  const idx = STORE.findIndex(s => s.id === id);
-  if (idx === -1) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  const removed = STORE.splice(idx, 1)[0];
-  return NextResponse.json({ success: true, removed });
+  try {
+    const idParam = resolveId(req, params);
+    if (!idParam) return NextResponse.json({ error: 'Missing id parameter (pass in path or ?product_id=...)' }, { status: 400 });
+
+    let res;
+    if (isUUID(idParam)) {
+      res = await supabaseAdmin.from('products').delete().eq('id', idParam).select();
+    } else {
+      res = await supabaseAdmin.from('products').delete().eq('product_id', idParam).select();
+    }
+
+    if (res.error) return NextResponse.json({ error: res.error.message || 'DB error' }, { status: 500 });
+    if (!res.data || (Array.isArray(res.data) && res.data.length === 0)) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json({ removed: res.data });
+  } catch (err) {
+    console.error('DELETE single product unexpected', err);
+    return NextResponse.json({ error: err?.message || 'Server error' }, { status: 500 });
+  }
 }
