@@ -1,49 +1,57 @@
-// File: app/(dashboard)/settings/page.jsx
-// Next.js App Router page (client component)
 "use client";
 
+import React, { useState, ChangeEvent, FormEvent } from 'react';
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+interface Product {
+    id: string;
+    product_id: string;
+    name: string;
+    your_price: number | string;
+    timestamp: string;
+    domain: string | null;
+}
 
+interface ProductForm {
+    product_id: string;
+    name: string;
+    your_price: string | number;
+    timestamp: string;
+    domain: string;
+}
+
+interface Message {
+    id: number;
+    text: string;
+    type: 'success' | 'error' | 'info';
+}
 
 export default function SettingsPage() {
-    const router = useRouter();
-    const [isAdmin] = useState(true);
+    const [products, setProducts] = useState<Product[]>([]);
+    const [form, setForm] = useState<ProductForm>({ product_id: '', name: '', your_price: '', timestamp: '', domain: '' });
+    const [editing, setEditing] = useState<Product | null>(null);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [isAdmin, setIsAdmin] = useState(true);
     const [globalElasticity, setGlobalElasticity] = useState(1.2);
     const [globalProfitMargin, setGlobalProfitMargin] = useState(20);
-    const [products, setProducts] = useState([]);
-    const [form, setForm] = useState({ product_id: "", name: "", your_price: "", timestamp: "", domain: "" });
-    const [editing, setEditing] = useState(null);
-    const [messages, setMessages] = useState([]);
 
-    useEffect(() => {
-        // TODO: Replace with real fetch from /api/products
-        // For now fetch dummy list from API stub
-        fetch('/api/products')
-            .then(r => r.json())
-            .then(data => setProducts(data || []))
-            .catch(() => setProducts([]));
-    }, []);
+    const addMessage = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
+        const id = Date.now();
+        setMessages(prev => [...prev, { id, text, type }]);
+        setTimeout(() => setMessages(prev => prev.filter(m => m.id !== id)), 5000);
+    };
 
-
-    function addMessage(text, type = "info") {
-        setMessages((m) => [...m, { id: Date.now(), text, type }]);
-    }
-
-
-    function handleFormChange(e) {
+    const handleFormChange = (e: ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        setForm((f) => ({ ...f, [name]: value }));
-    }
+        setForm(prev => ({ ...prev, [name]: value }));
+    };
 
-
-    function validateRow(row) {
+    function validateRow(row: ProductForm | Product | any): boolean {
         if (!row.product_id || !row.name || row.your_price === undefined || row.your_price === "" || !row.timestamp) return false;
         if (isNaN(Number(row.your_price))) return false;
         return true;
     }
-    async function handleAddManual(e) {
+
+    async function handleAddManual(e: FormEvent) {
         e.preventDefault(); // important — stops default form submit that creates a GET/POST to current page
         // validation
         if (!validateRow(form)) {
@@ -91,19 +99,18 @@ export default function SettingsPage() {
         }
     }
 
-
-
-    function handleCSVUpload(e) {
+    function handleCSVUpload(e: ChangeEvent<HTMLInputElement>) {
         const file = e.target.files && e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onload = async (ev) => {
-            const text = ev.target.result;
+            const text = ev.target?.result as string;
+            if (!text) return;
             const lines = text.split(/\r?\n/).filter(Boolean);
             if (!lines.length) { addMessage('CSV is empty', 'error'); return; }
 
             const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-            const idx = {};
+            const idx: { [key: string]: number } = {};
             headers.forEach((h, i) => idx[h] = i);
 
             // required header names (lowercase)
@@ -125,7 +132,7 @@ export default function SettingsPage() {
                 };
             });
 
-            const good = [], badLines = [];
+            const good: any[] = [], badLines: number[] = [];
             rows.forEach((r, i) => {
                 if (validateRow(r)) good.push({
                     product_id: String(r.product_id).trim(),
@@ -170,12 +177,10 @@ export default function SettingsPage() {
         };
 
         reader.readAsText(file);
-        e.target.value = null;
+        e.target.value = '';
     }
 
-
-
-    async function handleDelete(id) {
+    async function handleDelete(id: string) {
         if (!isAdmin) { addMessage('Only admin can delete.', 'error'); return; }
         if (!confirm('Delete this product?')) return;
         try {
@@ -185,14 +190,17 @@ export default function SettingsPage() {
             addMessage('Product deleted', 'success');
         } catch (err) { addMessage('Failed to delete (API).', 'error'); console.error(err); }
     }
-    function startEdit(prod) { setEditing({ ...prod }); }
 
+    function startEdit(prod: Product) { setEditing({ ...prod }); }
 
-    function handleEditChange(e) { const { name, value } = e.target; setEditing(s => ({ ...s, [name]: value })); }
+    function handleEditChange(e: ChangeEvent<HTMLInputElement>) {
+        const { name, value } = e.target;
+        setEditing(s => (s ? { ...s, [name]: value } : null));
+    }
 
-
-    async function saveEdit(e) {
+    async function saveEdit(e: FormEvent) {
         e.preventDefault();
+        if (!editing) return;
         if (!validateRow(editing)) { addMessage('Edited product missing required fields', 'error'); return; }
         try {
             const res = await fetch(`/api/products/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editing) });
@@ -201,15 +209,18 @@ export default function SettingsPage() {
             setProducts(p => p.map(it => it.id === updated.id ? updated : it));
             setEditing(null);
             addMessage('Product updated', 'success');
-        } catch (err) { addMessage('Failed to update (API).', 'error'); console.error(err); }
+        } catch (err) {
+            addMessage('Failed to update (API).', 'error');
+            console.error(err);
+        }
     }
+
     return (
         <div className="p-6 max-w-7xl mx-auto">
             <header className="mb-6">
                 <h1 className="text-2xl font-semibold">Settings — Product Catalog</h1>
                 <p className="text-sm text-gray-600 mt-1">Add / import products, set global pricing parameters, and manage entries.</p>
             </header>
-
 
             <section className="bg-white shadow rounded p-4 mb-6">
                 <h2 className="text-lg font-medium mb-3">Global Pricing Settings</h2>
@@ -329,7 +340,7 @@ export default function SettingsPage() {
                                 <input name="timestamp" value={editing.timestamp} onChange={handleEditChange} className="border p-2 rounded" />
                             </div>
                             <div>
-                                <input name="domain" value={editing.domain} onChange={handleEditChange} className="border p-2 rounded w-full" />
+                                <input name="domain" value={editing.domain || ''} onChange={handleEditChange} className="border p-2 rounded w-full" />
                             </div>
                             <div className="flex justify-end gap-2">
                                 <button type="button" className="px-4 py-2 border rounded" onClick={() => setEditing(null)}>Cancel</button>
@@ -339,8 +350,6 @@ export default function SettingsPage() {
                     </div>
                 </div>
             )}
-
-
         </div>
     );
 }

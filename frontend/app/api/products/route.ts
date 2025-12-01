@@ -1,18 +1,18 @@
-// app/api/products/route.js
+// app/api/products/route.ts
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/server/supabaseAdmin'; // adjust path if needed
 
-function safeMask(str) {
+function safeMask(str: string | undefined | null) {
     if (!str) return null;
     return `${str.slice(0, 6)}...${str.slice(-4)}`;
 }
 
-async function fetchByProductId(productId:any) {
+async function fetchByProductId(productId: any) {
     // fetch a single product by business product_id
     return supabaseAdmin.from('products').select('*').eq('product_id', productId).limit(1).maybeSingle();
 }
 
-export async function GET(req) {
+export async function GET(req: Request) {
     try {
         const url = new URL(req.url);
         const pathname = url.pathname || '';
@@ -73,14 +73,21 @@ export async function GET(req) {
         const { data, error } = await q;
         console.log('GET /api/products ->', { error });
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-        return NextResponse.json(data || []);
-    } catch (err) {
+
+        // Map the data to include product_name for frontend compatibility
+        const mappedData = (data || []).map(product => ({
+            ...product,
+            product_name: product.name, // Map 'name' to 'product_name'
+        }));
+
+        return NextResponse.json(mappedData);
+    } catch (err: any) {
         console.error('GET /api/products unexpected', err);
         return NextResponse.json({ error: err.message || 'Unexpected' }, { status: 500 });
     }
 }
 
-export async function POST(req) {
+export async function POST(req: Request) {
     try {
         const raw = await req.text();
         console.log('POST /api/products raw body length', raw ? raw.length : 0);
@@ -109,7 +116,7 @@ export async function POST(req) {
         const rows = Array.isArray(body) ? body : [body];
 
         // sanitize / coerce
-        const sanitized = rows.map((r) => ({
+        const sanitized = rows.map((r: any) => ({
             product_id: String(r.product_id ?? r.productId ?? '').trim(),
             name: String(r.name ?? '').trim(),
             your_price: Number(r.your_price ?? r.price ?? 0),
@@ -127,7 +134,7 @@ export async function POST(req) {
             return NextResponse.json({ error: error.message, details: error }, { status: 500 });
         }
         return NextResponse.json({ inserted: data }, { status: 201 });
-    } catch (err) {
+    } catch (err: any) {
         console.error('POST unexpected', err);
         return NextResponse.json({ error: err.message || 'Unexpected' }, { status: 500 });
     }

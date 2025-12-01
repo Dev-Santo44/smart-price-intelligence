@@ -1,8 +1,5 @@
 "use client";
-
-import React, { useState } from "react";
-import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
+import React, { useState, useEffect } from "react";
 import KPICard from './components/KPICard';
 import PriceChart from './components/PriceChart';
 import RecommendationList from './components/RecommendationList';
@@ -10,30 +7,61 @@ import QuickActions from './components/QuickActions';
 import RecentPricesTable from './components/RecentPricesTable';
 import { useRouter } from "next/navigation";
 
-const queryClient = new QueryClient();
-
-function fetchDashboard(page = 1, pageSize = 3) {
-  return axios.get(`/api/dashboard?page=${page}&pageSize=${pageSize}`).then(r => r.data);
-}
-
-function DashboardInner() {
+export default function DashboardPage() {
   const [page, setPage] = useState(1);
   const pageSize = 3;
   const router = useRouter();
-  const qc = useQueryClient();
 
-  const { data, isLoading, error } = useQuery(["dashboard", page], () => fetchDashboard(page, pageSize), { keepPreviousData: true });
+  const [data, setData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const mutateRec = useMutation(({ id, action }) => axios.post(`/api/recommendations/${id}`, { action }).then(r => r.data), {
-    onSuccess: () => qc.invalidateQueries(["dashboard"])
-  });
+  // Function to fetch dashboard data
+  const fetchDashboardData = async (pageNum: number) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/dashboard?page=${pageNum}&pageSize=${pageSize}`);
+      if (!res.ok) throw new Error("Failed to fetch dashboard data");
+      const result = await res.json();
+      setData(result);
+    } catch (err: any) {
+      setError(err.message || "Unable to load dashboard data.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const onAccept = (rec) => mutateRec.mutate({ id: rec.id, action: "accept" });
-  const onReject = (rec) => mutateRec.mutate({ id: rec.id, action: "reject" });
-  const onView = (row) => router.push(`/dashboard/${encodeURIComponent(row.product_id)}`);
+  useEffect(() => {
+    fetchDashboardData(page);
+  }, [page]);
 
-  if (isLoading) return <div className="p-6">Loading dashboard...</div>;
-  if (error) return <div className="p-6 text-rose-600">Unable to load dashboard data.</div>;
+  // Handle recommendation actions
+  const handleRecommendationAction = async (id: string, action: string) => {
+    try {
+      const res = await fetch(`/api/recommendations/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+
+      if (!res.ok) throw new Error("Failed to update recommendation");
+
+      // Refresh dashboard data after action
+      fetchDashboardData(page);
+    } catch (err) {
+      console.error("Error updating recommendation:", err);
+      // Optional: Show error toast
+    }
+  };
+
+  const onAccept = (rec: any) => handleRecommendationAction(rec.id, "accept");
+  const onReject = (rec: any) => handleRecommendationAction(rec.id, "reject");
+  const onView = (row: any) => router.push(`/dashboard/${encodeURIComponent(row.product_id)}`);
+
+  if (isLoading && !data) return <div className="p-6">Loading dashboard...</div>;
+  if (error) return <div className="p-6 text-rose-600">{error}</div>;
+  if (!data) return null;
 
   const { kpis, priceSeries, recent, recommendations, total } = data;
   const totalPages = Math.ceil(total / pageSize);
@@ -53,7 +81,7 @@ function DashboardInner() {
 
       <main className="grid grid-cols-12 gap-6">
         <section className="col-span-12 grid grid-cols-4 gap-4">
-          {kpis.map(k => (<KPICard key={k.id} title={k.title} value={k.value} delta={k.delta} />))}
+          {kpis.map((k: any) => (<KPICard key={k.id} title={k.title} value={k.value} delta={k.delta} />))}
         </section>
 
         <section className="col-span-8 space-y-4">
@@ -74,13 +102,5 @@ function DashboardInner() {
         </aside>
       </main>
     </div>
-  );
-}
-
-export default function DashboardPage() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <DashboardInner />
-    </QueryClientProvider>
   );
 }

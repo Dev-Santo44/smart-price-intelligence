@@ -1,41 +1,53 @@
 "use client";
 
-import React from "react";
-import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import axios from "axios";
+import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-const queryClient = new QueryClient();
-
-async function fetchProduct(id: string) {
-  // axios will throw for non-2xx responses; we catch and rethrow a clearer error
-  const res = await axios.get(`/api/products/${encodeURIComponent(id)}`);
-  const data = res.data;
-
-  // if your API returns { error: '...' } on failure, normalize into a thrown error
-  if (data && typeof data === "object" && ("error" in data)) {
-    throw new Error(data.error || "Failed to load product");
-  }
-
-  // The API returns the product object directly (not { product })
-  return data;
-}
-
-function ProductDetails() {
+export default function ProductDetails() {
   const params = useParams();
-  // note: dynamic segment name must match your folder [productId] => productId
   const id = params?.productId as string | undefined;
   const router = useRouter();
 
-  const { data, isLoading, isError, error } = useQuery(
-    ["product", id],
-    () => fetchProduct(id!),
-    {
-      enabled: !!id,       // only run when id is available
-      retry: false,        // optional: avoid automatic retries during debugging
-      suspense: false,
+  const [data, setData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+
+    let isMounted = true;
+    setIsLoading(true);
+    setError(null);
+
+    async function fetchProduct() {
+      try {
+        const res = await fetch(`/api/products/${encodeURIComponent(id!)}`);
+        const result = await res.json();
+
+        if (!res.ok) {
+          throw new Error(result.error || result.message || "Failed to load product");
+        }
+
+        if (isMounted) {
+          setData(result);
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          setError(err.message || "Unable to load product.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
     }
-  );
+
+    fetchProduct();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
 
   if (!id) {
     return <div className="p-6">Invalid product id.</div>;
@@ -43,16 +55,8 @@ function ProductDetails() {
 
   if (isLoading) return <div className="p-6">Loading product...</div>;
 
-  if (isError) {
-    // axios errors can be nested, so show helpful info if available
-    let message = "Unable to load product.";
-    if (error && (error as any).response && (error as any).response.data) {
-      const d = (error as any).response.data;
-      message = d.error ?? JSON.stringify(d);
-    } else if (error instanceof Error) {
-      message = error.message;
-    }
-    return <div className="p-6 text-rose-600">{message}</div>;
+  if (error) {
+    return <div className="p-6 text-rose-600">{error}</div>;
   }
 
   // `data` here is the product row returned by the API
@@ -94,13 +98,5 @@ function ProductDetails() {
         </div>
       </div>
     </div>
-  );
-}
-
-export default function ProductPageClient() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <ProductDetails />
-    </QueryClientProvider>
   );
 }

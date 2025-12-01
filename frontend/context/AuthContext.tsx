@@ -11,7 +11,10 @@ interface UserProfile {
     email: string;
     name?: string;
     employeeNumber?: string;
+    domain?: string;
     role?: string;
+    createdAt?: string;
+    disabled?: boolean;
 }
 
 interface AuthContextType {
@@ -34,16 +37,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (firebaseUser) {
                 setUser(firebaseUser);
 
-                // 🔹 Fetch Firestore user data
                 const userRef = doc(db, "users", firebaseUser.uid);
-                const userSnap = await getDoc(userRef);
-                if (userSnap.exists()) {
-                    setProfile(userSnap.data() as UserProfile);
-                } else {
-                    // fallback if no Firestore profile found
+                const snap = await getDoc(userRef);
+
+                if (snap.exists()) {
+                    const data = snap.data() as any;
+
+                    // IMPORTANT FIX: MERGE FIREBASE AUTH FIELDS
                     setProfile({
                         uid: firebaseUser.uid,
-                        email: firebaseUser.email || "",
+                        email: firebaseUser.email!,
+                        role: data.role || "user",
+                        domain: data.domain || "",
+                        name: data.name || "",
+                        employeeNumber: data.employeeNumber || "",
+                        createdAt: data.createdAt || "",
+                        disabled: data.disabled || false,
+                    });
+                } else {
+                    // fallback
+                    setProfile({
+                        uid: firebaseUser.uid,
+                        email: firebaseUser.email!,
+                        role: "user",
+                        domain: "",
                     });
                 }
             } else {
@@ -71,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth() {
-    const context = useContext(AuthContext);
-    if (!context) throw new Error("useAuth must be used inside AuthProvider");
-    return context;
+    const ctx = useContext(AuthContext);
+    if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
+    return ctx;
 }

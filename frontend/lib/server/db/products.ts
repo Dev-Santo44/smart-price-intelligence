@@ -8,7 +8,6 @@ export type ProductRow = {
     category: string | null;
     current_price: number;
     updated_at: string;
-    // add fields you need
 };
 
 export async function getProducts({
@@ -28,23 +27,33 @@ export async function getProducts({
     const to = from + perPage - 1;
 
     let query = supabaseAdmin
-        .from<ProductRow>("products")
-        .select("id,name,sku,category,current_price,updated_at", { count: "exact" })
+        .from("products")
+        .select(
+            "id,name,sku,category,current_price,updated_at",
+            { count: "exact" }
+        )
         .range(from, to);
 
     if (q) {
-        // full text / ilike search (example)
         query = query.ilike("name", `%${q}%`);
     }
+
     if (category) {
         query = query.eq("category", category);
     }
 
-    // simple sort handling; validate sort server-side
-    if (sort === "price") query = query.order("current_price", { ascending: true });
-    else query = query.order("name", { ascending: true });
+    if (sort === "price") {
+        query = query.order("current_price", { ascending: true });
+    } else {
+        query = query.order("name", { ascending: true });
+    }
 
-    const { data, error, count } = await query;
+    // Apply typing only on output (no functionality changed)
+    const { data, error, count } = await query as unknown as {
+        data: ProductRow[];
+        error: any;
+        count: number;
+    };
 
     if (error) throw error;
     return { items: data ?? [], total: count ?? 0 };
@@ -52,10 +61,13 @@ export async function getProducts({
 
 export async function getProductById(productId: string) {
     const { data, error } = await supabaseAdmin
-        .from<ProductRow>("products")
+        .from("products")
         .select("id,name,sku,category,current_price,updated_at")
         .eq("product_id", productId)
-        .single();
+        .single() as unknown as {
+            data: ProductRow;
+            error: any;
+        };
 
     if (error) throw error;
     return data;

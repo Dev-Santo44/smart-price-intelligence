@@ -32,7 +32,7 @@ export default function Sidebar() {
     // 🧩 Role-based menus
     const roleBasedLinks = {
         admin: [
-            { href: "/dashboard/userManagement", label: "User Management", icon: Users },
+            { href: "/dashboard/admin/userManagement", label: "User Management", icon: Users },
             { href: "/dashboard/admin/system", label: "System", icon: Cpu },
             { href: "/settings", label: "Settings", icon: Settings },
 
