@@ -16,7 +16,7 @@ export default function Navbar() {
     const { user } = useAuth();
     const { profile, logout, loading } = useAuth();
     const router = useRouter();
-    
+
 
     const handleLogIn = () => {
         router.push('/login')
@@ -28,10 +28,10 @@ export default function Navbar() {
             {/* Left: Logo */}
             <div className="flex items-center gap-2">
                 <Image src={img} alt="Smart Pricing Intelligence" width={30} height={30} />
-                <Link href = "/">
-                <span className="font-semibold text-lg text-gray-800 dark:text-gray-100">
-                    Smart Pricing Intelligence
-                </span>
+                <Link href="/">
+                    <span className="font-semibold text-lg text-gray-800 dark:text-gray-100">
+                        Smart Pricing Intelligence
+                    </span>
                 </Link>
             </div>
 
@@ -64,17 +64,21 @@ export default function Navbar() {
                         3
                     </span>
                 </button>
-                
-                
+
+
                 {/* User Menu */}
                 <div className="flex items-center gap-2">
-                    {user ? <> <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center">
-                        <User className="w-4 h-4 text-gray-800 dark:text-gray-100" />
-                    </div>
-                        <span className="hidden md:inline text-sm font-medium">{console.log(user.name)}</span></> : <button
-                            onClick={handleLogIn}
-                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
-                        >
+                    {user ? (
+                        <Link href="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                            <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center">
+                                <User className="w-4 h-4 text-gray-800 dark:text-gray-100" />
+                            </div>
+                            <span className="hidden md:inline text-sm font-medium">{profile?.name || "User"}</span>
+                        </Link>
+                    ) : <button
+                        onClick={handleLogIn}
+                        className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
+                    >
                         Log in
                     </button>}
                 </div>

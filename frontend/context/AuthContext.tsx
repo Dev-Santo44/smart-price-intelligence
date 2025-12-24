@@ -15,6 +15,7 @@ interface UserProfile {
     role?: string;
     createdAt?: string;
     disabled?: boolean;
+    phoneNumber?: string;
 }
 
 interface AuthContextType {
@@ -53,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         employeeNumber: data.employeeNumber || "",
                         createdAt: data.createdAt || "",
                         disabled: data.disabled || false,
+                        phoneNumber: data.phoneNumber || "",
                     });
                 } else {
                     // fallback
