@@ -85,9 +85,7 @@ export default function Navbar() {
                 <div className="flex items-center gap-4">
                     {!loading && profile ? (
                         <>
-                            <span className="text-gray-700 dark:text-gray-200 font-medium">
-                                👋 Hi, {profile.name || "User"}
-                            </span>
+                            
                             <button
                                 onClick={logout}
                                 className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"

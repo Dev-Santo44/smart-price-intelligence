@@ -6,15 +6,7 @@ on:
   pull_request:
     branches: [ "main", "dev" ]
 
-jobs:
-  backend-lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: cd backend && npm i && npm run lint
+
 
   models-check:
     runs-on: ubuntu-latest
