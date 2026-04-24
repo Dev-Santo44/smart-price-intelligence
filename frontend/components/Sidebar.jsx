@@ -37,7 +37,7 @@ export default function Sidebar() {
             { href: "/settings", label: "Settings", icon: Settings },
 
             { href: "/dashboard/analyst", label: "Pricing Analytics", icon: BarChart2 },
-            { href: "/dashboard/analyst/recommendations", label: "Recommendations", icon: Cpu },
+            { href: "/dashboard/recommendations", label: "Recommendations", icon: Cpu },
             { href: "/dashboard/analyst/competitor", label: "Competitor Monitoring", icon: ChartNoAxesCombined },
 
             { href: "/dashboard/executive", label: "Strategic Insights", icon: BarChart2 },
@@ -48,7 +48,7 @@ export default function Sidebar() {
         ],
         analyst: [
             { href: "/dashboard/analyst", label: "Pricing Analytics", icon: BarChart2 },
-            { href: "/dashboard/analyst/recommendations", label: "Recommendations", icon: Cpu },
+            { href: "/dashboard/recommendations", label: "Recommendations", icon: Cpu },
             { href: "/dashboard/analyst/competitor", label: "Competitor Monitoring", icon: ChartNoAxesCombined },
         ],
         executive: [

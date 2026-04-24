@@ -23,7 +23,7 @@ async function resolveId(req: Request, params: any): Promise<string | null> {
   return null;
 }
 
-export async function GET(req: Request, { params }: { params: any }) {
+export async function GET(req: Request, { params }: { params: Promise<{ productId: string }> }) {
   try {
     const idParam = await resolveId(req, params);
     if (!idParam) return NextResponse.json({ error: 'Missing id parameter (pass in path or ?product_id=...)' }, { status: 400 });
@@ -45,7 +45,7 @@ export async function GET(req: Request, { params }: { params: any }) {
   }
 }
 
-export async function PUT(req: Request, { params }: { params: any }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ productId: string }> }) {
   try {
     const idParam = await resolveId(req, params);
     if (!idParam) return NextResponse.json({ error: 'Missing id parameter (pass in path or ?product_id=...)' }, { status: 400 });
@@ -81,7 +81,7 @@ export async function PUT(req: Request, { params }: { params: any }) {
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: any }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ productId: string }> }) {
   try {
     const idParam = await resolveId(req, params);
     if (!idParam) return NextResponse.json({ error: 'Missing id parameter (pass in path or ?product_id=...)' }, { status: 400 });
