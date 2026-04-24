@@ -6,7 +6,7 @@ export default [
         ignores: [".next/**", "node_modules/**", "out/**", ".turbo/**"],
     },
     {
-        files: ["**/*.{js,jsx}"],
+        files: ["**/*.{js,jsx,ts,tsx}"],
         languageOptions: {
             ecmaVersion: "latest",
             sourceType: "module",
@@ -22,7 +22,7 @@ export default [
         },
     },
     {
-        files: ["**/*.{ts,tsx}"],
+        files: ["**/*.{js,jsx,ts,tsx}"],
         languageOptions: {
             parser: tsparser,
             ecmaVersion: "latest",
