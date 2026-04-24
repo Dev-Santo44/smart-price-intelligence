@@ -3,6 +3,12 @@ DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='category') THEN
         ALTER TABLE products ADD COLUMN category TEXT;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='sku') THEN
+        ALTER TABLE products ADD COLUMN sku TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='your_price') THEN
+        ALTER TABLE products ADD COLUMN your_price NUMERIC;
+    END IF;
 END $$;
 
 -- CREATE COMPETITORS TABLE
@@ -25,6 +31,24 @@ DO $$ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='recommendations' AND column_name='rationale') THEN
         ALTER TABLE recommendations ADD COLUMN rationale TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='recommendations' AND column_name='current_price') THEN
+        ALTER TABLE recommendations ADD COLUMN current_price NUMERIC;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='recommendations' AND column_name='recommended_price') THEN
+        ALTER TABLE recommendations ADD COLUMN recommended_price NUMERIC;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='recommendations' AND column_name='confidence') THEN
+        ALTER TABLE recommendations ADD COLUMN confidence NUMERIC;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='recommendations' AND column_name='status') THEN
+        ALTER TABLE recommendations ADD COLUMN status TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='recommendations' AND column_name='segment') THEN
+        ALTER TABLE recommendations ADD COLUMN segment TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='recommendations' AND column_name='region') THEN
+        ALTER TABLE recommendations ADD COLUMN region TEXT;
     END IF;
 END $$;
 
@@ -77,6 +101,9 @@ DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='scraped_data' AND column_name='product_id') THEN
         ALTER TABLE scraped_data ADD COLUMN product_id TEXT;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='scraped_data' AND column_name='price') THEN
+        ALTER TABLE scraped_data ADD COLUMN price NUMERIC;
+    END IF;
 END $$;
 
 -- FIX RECENT_EVENTS TABLE
@@ -95,5 +122,11 @@ CREATE TABLE IF NOT EXISTS recent_events (
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='recent_events' AND column_name='new_price') THEN
         ALTER TABLE recent_events ADD COLUMN new_price NUMERIC;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='recent_events' AND column_name='old_price') THEN
+        ALTER TABLE recent_events ADD COLUMN old_price NUMERIC;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='recent_events' AND column_name='change_pct') THEN
+        ALTER TABLE recent_events ADD COLUMN change_pct NUMERIC;
     END IF;
 END $$;

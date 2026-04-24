@@ -5,103 +5,89 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/server/supabaseAdmin";
 
 // ─── Canonical product & competitor data ─────────────────────────────────────
+// ─── Canonical product & competitor data ─────────────────────────────────────
 const PRODUCTS = [
-  { product_id: "P-1001", name: "Enterprise CRM License", your_price: 2400, category: "Software",       sku: "CRM-ENT-01" },
-  { product_id: "P-1002", name: "Cloud Storage Pro",       your_price: 1068, category: "Infrastructure", sku: "CSP-PRO-02" },
-  { product_id: "P-1003", name: "API Gateway Plus",        your_price: 3588, category: "Infrastructure", sku: "API-GW-03"  },
-  { product_id: "P-1004", name: "Data Analytics Suite",    your_price: 5988, category: "Analytics",      sku: "DAS-PRO-04" },
-  { product_id: "P-1005", name: "Security Shield Pro",     your_price: 2388, category: "Security",       sku: "SEC-SHP-05" },
+  { product_id: "P-1001", name: "Wireless Headphones X1",      sku: "SKU-WH-X1",   category: "Audio",       your_price: 96.50 },
+  { product_id: "P-1042", name: "Smart Speaker Plus",           sku: "SKU-SS-PL",   category: "Smart Home",  your_price: 149.00 },
+  { product_id: "P-2011", name: "USB-C Hub Pro 7-in-1",         sku: "SKU-UC-H7",   category: "Accessories", your_price: 54.00 },
+  { product_id: "P-1089", name: "Noise Cancel Pro Earbuds",     sku: "SKU-NC-PRO",  category: "Audio",       your_price: 210.00 },
+  { product_id: "P-3301", name: "BT Mechanical Keyboard Elite", sku: "SKU-BT-MKE",  category: "Peripherals", your_price: 78.00 },
 ];
 
 const COMPETITORS = [
-  { id: "C-01", name: "TechVault" },
-  { id: "C-02", name: "CloudNine" },
-  { id: "C-03", name: "DataPrime" },
-  { id: "C-04", name: "CyberEdge" },
-  { id: "C-05", name: "InnoSoft"  },
+  { id: "C-001", name: "BrandZ" },
+  { id: "C-002", name: "AlphaCo" },
+  { id: "C-003", name: "NovaTech" },
+  { id: "C-004", name: "PrimeSys" },
+  { id: "C-005", name: "CoreEdge" },
+  { id: "C-006", name: "StellarGear" },
+  { id: "C-007", name: "ApexSound" },
 ];
 
 const RECOMMENDATIONS = [
-  { product_id: "P-1001", product_name: "Enterprise CRM License", segment: "Enterprise",  region: "North America", current_price: 2400, recommended_price: 2580, floor_price: 2100, ceiling_price: 2800, confidence: 0.92, impact: 7.5,  status: "pending", rationale: "TechVault raised Enterprise CRM price by 9%. Demand stable. Margin 4% below target. Recommend 7.5% increase." },
-  { product_id: "P-1002", product_name: "Cloud Storage Pro",       segment: "SMB",         region: "North America", current_price: 1068, recommended_price:  998, floor_price:  920, ceiling_price: 1150, confidence: 0.78, impact: -6.6, status: "pending", rationale: "3 competitors dropped below ₹1,000. Win rate fell 12% in last 30 days. Lower to recover SMB deal flow." },
-  { product_id: "P-1003", product_name: "API Gateway Plus",        segment: "Mid-Market",  region: "EMEA",          current_price: 3588, recommended_price: 3588, floor_price: 3200, ceiling_price: 3900, confidence: 0.88, impact: 0,    status: "pending", rationale: "Market stable. Margin healthy at 22%. No competitor movement in last 90 days. Hold current price." },
-  { product_id: "P-1004", product_name: "Data Analytics Suite",    segment: "Enterprise",  region: "North America", current_price: 5988, recommended_price: 6200, floor_price: 5500, ceiling_price: 6800, confidence: 0.83, impact: 3.5,  status: "pending", rationale: "Premium segment demand up 18%. Only 1 competitor (DataPrime) in this price bracket. Recommend 3.5% increase." },
-  { product_id: "P-1005", product_name: "Security Shield Pro",     segment: "SMB",         region: "APAC",          current_price: 2388, recommended_price: 2200, floor_price: 2100, ceiling_price: 2600, confidence: 0.71, impact: -7.9, status: "pending", rationale: "InnoSoft undercut by ₹320. Losing SMB deals consistently for 60 days. Lower price to restore win rate." },
+  { id: "R-001", product_id: "P-1001", current_price: 96.50, recommended_price: 99.00, floor_price: 94.00, ceiling_price: 104.00, confidence: 92, impact: 1.2, status: "pending", segment: "Enterprise", region: "North India", rationale: "BrandZ raised price by 8% to $98.70 this week — highest in 90 days. Market avg moved to $92.30. Your margin is 3.8% below the 18% target. Demand index stable at 0.94. Recommend raising to $99 to capture margin without losing competitive position." },
+  { id: "R-002", product_id: "P-1042", current_price: 149.00, recommended_price: 142.00, floor_price: 138.00, ceiling_price: 152.00, confidence: 78, impact: 0.8, status: "pending", segment: "SMB", region: "West India", rationale: "3 competitors dropped below $145 in the last 7 days. Win rate for Smart Speaker Plus fell from 66% to 54% this month. Deal velocity down 18%. Recommend lowering to $142 to recover SMB win rate without breaching floor margin." },
+  { id: "R-003", product_id: "P-2011", current_price: 54.00, recommended_price: 54.00, floor_price: 50.00, ceiling_price: 58.00, confidence: 88, impact: 0.0, status: "pending", segment: "Mid-Market", region: "South India", rationale: "Market pricing stable. Competitor avg $54.30. Your margin at 22% — above target. No significant price movement in 14 days. Seasonality index neutral. Recommend holding current price." },
+  { id: "R-004", product_id: "P-1089", current_price: 210.00, recommended_price: 219.00, floor_price: 205.00, ceiling_price: 225.00, confidence: 83, impact: 2.1, status: "pending", segment: "Enterprise", region: "Pan India", rationale: "Premium segment demand index rose 14% QoQ. Only 1 direct competitor (ApexSound) within $10 range. BrandZ is at $224. Enterprise deals closing faster — avg 12 days vs 18 days last quarter. Recommend raising to $219 to narrow gap with BrandZ while staying below ApexSound." },
+  { id: "R-005", product_id: "P-3301", current_price: 78.00, recommended_price: 74.00, floor_price: 70.00, ceiling_price: 82.00, confidence: 71, impact: 0.4, status: "pending", segment: "SMB", region: "East India", rationale: "AlphaCo dropped keyboard price from $76 to $69 last week — 9.2% cut. You lost 4 SMB deals in the last 10 days where price was cited as the reason. Recommend lowering to $74 to stay competitive while preserving a $5 margin buffer above AlphaCo." },
 ];
 
 const AUDIT_LOG = [
-  { user_name: "Shantanu D.", product_name: "Enterprise CRM License", old_price: 2200, new_price: 2400, change_pct:  9.1, outcome: "+1.4% margin", rationale: "ML recommendation accepted — competitor uplift",         timestamp: "2026-04-20T10:00:00Z" },
-  { user_name: "Priya M.",    product_name: "Cloud Storage Pro",       old_price: 1068, new_price: 1068, change_pct:  0.0, outcome: "No change",     rationale: "Rejected — awaiting Q2 review",                         timestamp: "2026-04-18T14:30:00Z" },
-  { user_name: "Shantanu D.", product_name: "API Gateway Plus",        old_price: 3400, new_price: 3588, change_pct:  5.5, outcome: "+0.9% margin", rationale: "Modified — strategic pricing with new feature launch",   timestamp: "2026-04-15T09:00:00Z" },
-  { user_name: "Raj P.",      product_name: "Data Analytics Suite",    old_price: 5600, new_price: 5988, change_pct:  6.9, outcome: "+2.1% margin", rationale: "ML recommendation accepted — enterprise demand surge",    timestamp: "2026-04-10T11:15:00Z" },
-  { user_name: "Admin Bot",   product_name: "Security Shield Pro",     old_price: 2500, new_price: 2388, change_pct: -4.5, outcome: "Neutral",       rationale: "Auto-match competitor floor price",                      timestamp: "2026-04-08T08:00:00Z" },
+  { user_name: "Shantanu D.", product_name: "Wireless Headphones X1", old_price: 93.00, new_price: 96.50, change_pct: 3.8, outcome: "+1.4% margin", rationale: "Accepted ML recommendation. BrandZ raised first — safe window to follow.", timestamp: "2026-04-04T10:00:00Z" },
+  { user_name: "Priya M.",    product_name: "Smart Speaker Plus",       old_price: 149.00, new_price: 149.00, change_pct: 0.0, outcome: "No change",     rationale: "Rejected — Q4 campaign in progress. Did not want to raise price during promotional period.", timestamp: "2026-04-06T14:30:00Z" },
+  { user_name: "Shantanu D.", product_name: "USB-C Hub Pro 7-in-1",     old_price: 52.00, new_price: 54.00, change_pct: 3.8, outcome: "+0.9% margin", rationale: "Modified recommendation. Raised to $54 instead of suggested $55 — conservative approach.", timestamp: "2026-04-09T09:00:00Z" },
+  { user_name: "Rahul V.",    product_name: "Noise Cancel Pro Earbuds", old_price: 205.00, new_price: 210.00, change_pct: 2.4, outcome: "+1.1% margin", rationale: "Accepted. Premium segment showed strong demand signal — comfortable raising.", timestamp: "2026-03-20T11:15:00Z" },
+  { user_name: "Priya M.",    product_name: "BT Mechanical Keyboard Elite", old_price: 82.00, new_price: 78.00, change_pct: -4.9, outcome: "+6% win rate recovery", rationale: "Accepted — multiple lost deals cited price as blocker. Needed to move fast.", timestamp: "2026-03-10T08:00:00Z" },
 ];
 
 const MODEL_ACCURACY = [
-  { month: "May-25", mape: 7.2, hit_rate: 74.0, predictions_count: 38 },
-  { month: "Jun-25", mape: 6.8, hit_rate: 75.5, predictions_count: 42 },
-  { month: "Jul-25", mape: 6.1, hit_rate: 77.0, predictions_count: 45 },
-  { month: "Aug-25", mape: 5.9, hit_rate: 78.2, predictions_count: 50 },
-  { month: "Sep-25", mape: 5.5, hit_rate: 79.0, predictions_count: 55 },
-  { month: "Oct-25", mape: 5.2, hit_rate: 80.1, predictions_count: 58 },
-  { month: "Nov-25", mape: 4.9, hit_rate: 81.3, predictions_count: 62 },
-  { month: "Dec-25", mape: 4.7, hit_rate: 82.0, predictions_count: 65 },
-  { month: "Jan-26", mape: 4.5, hit_rate: 82.8, predictions_count: 70 },
-  { month: "Feb-26", mape: 4.3, hit_rate: 83.5, predictions_count: 75 },
-  { month: "Mar-26", mape: 4.2, hit_rate: 84.0, predictions_count: 80 },
-  { month: "Apr-26", mape: 4.2, hit_rate: 79.0, predictions_count: 55 },
+  { month: "Nov 2025", mape: 5.8, hit_rate: 71, predictions_count: 14 },
+  { month: "Dec 2025", mape: 5.1, hit_rate: 74, predictions_count: 18 },
+  { month: "Jan 2026", mape: 4.9, hit_rate: 76, predictions_count: 21 },
+  { month: "Feb 2026", mape: 4.6, hit_rate: 78, predictions_count: 19 },
+  { month: "Mar 2026", mape: 4.4, hit_rate: 80, predictions_count: 23 },
+  { month: "Apr 2026", mape: 4.2, hit_rate: 79, predictions_count: 11 },
 ];
 
 const ALERT_RULES = [
-  { id: "AR-1", name: "Competitor Price Drop", condition: "Any competitor drops price > 5%",        channel: "in-app", active: true,  created_at: "2025-09-15T10:00:00Z" },
-  { id: "AR-2", name: "Margin Below Target",   condition: "Margin dips below 15%",                  channel: "in-app", active: true,  created_at: "2025-09-20T14:00:00Z" },
-  { id: "AR-3", name: "ML Confidence Drop",    condition: "Model confidence falls below 70%",        channel: "in-app", active: false, created_at: "2025-10-01T09:00:00Z" },
-  { id: "AR-4", name: "Scrape Failure",        condition: "Any source fails to scrape for > 24h",    channel: "in-app", active: true,  created_at: "2025-10-05T11:00:00Z" },
-  { id: "AR-5", name: "Win Rate Drop",         condition: "Win rate drops >10% in a 30-day window",  channel: "in-app", active: true,  created_at: "2025-11-01T08:00:00Z" },
+  { id: "AR-001", name: "Competitor price drop > 5%", condition: "scraped_price_change_pct < -5", channel: "in-app", active: true,  created_at: "2026-01-24T10:00:00Z" },
+  { id: "AR-002", name: "Your margin below 18%",   condition: "product_margin_pct < 18",       channel: "in-app", active: true,  created_at: "2026-01-24T14:00:00Z" },
+  { id: "AR-003", name: "Win rate drops below 50%",condition: "win_rate_30d < 50",             channel: "email",  active: true,  created_at: "2026-02-24T09:00:00Z" },
+  { id: "AR-004", name: "Recommendation confidence below 70%", condition: "recommendation_confidence < 70", channel: "in-app", active: true,  created_at: "2026-03-10T11:00:00Z" },
+  { id: "AR-005", name: "Data stale — no scrape in 24h", condition: "last_scrape_age_hours > 24", channel: "in-app", active: true,  created_at: "2026-03-25T08:00:00Z" },
 ];
 
 function buildAlertEvents(): any[] {
-  const n = Date.now();
   return [
-    { id: "AE-1", rule_name: "Competitor Price Drop", severity: "high",   message: "TechVault dropped Enterprise CRM price by 12%",            timestamp: new Date(n -  2*3600000).toISOString(), read: false },
-    { id: "AE-2", rule_name: "Margin Below Target",   severity: "medium", message: "Cloud Storage Pro margin at 13.2% (below 15% target)",     timestamp: new Date(n -  8*3600000).toISOString(), read: false },
-    { id: "AE-3", rule_name: "Competitor Price Drop", severity: "high",   message: "DataPrime reduced API Gateway pricing by 7.5%",            timestamp: new Date(n - 24*3600000).toISOString(), read: true  },
-    { id: "AE-4", rule_name: "Scrape Failure",        severity: "low",    message: "CyberEdge scraper returned 403 — retrying",               timestamp: new Date(n - 36*3600000).toISOString(), read: true  },
-    { id: "AE-5", rule_name: "ML Confidence Drop",    severity: "medium", message: "Model confidence for Security Shield Pro at 62%",          timestamp: new Date(n - 48*3600000).toISOString(), read: true  },
-    { id: "AE-6", rule_name: "Win Rate Drop",         severity: "high",   message: "Security Shield Pro SMB win rate dropped from 71% to 48%", timestamp: new Date(n - 72*3600000).toISOString(), read: true  },
+    { id: "AE-001", rule_name: "Competitor price drop > 5%", severity: "high",   message: "AlphaCo dropped BT Mechanical Keyboard Elite from $76.00 to $69.00 — a 9.2% cut. 4 SMB deals lost this week.", timestamp: "2026-04-20T10:00:00Z", read: false },
+    { id: "AE-002", rule_name: "Your margin below 18%",   severity: "high",   message: "Wireless Headphones X1 margin fell to 14.2% — 3.8% below the 18% target. Recommend reviewing pricing.", timestamp: "2026-04-22T08:00:00Z", read: false },
+    { id: "AE-003", rule_name: "Win rate drops below 50%", severity: "medium", message: "Smart Speaker Plus win rate in SMB segment is now 48% — below 50% threshold for the first time this quarter.", timestamp: "2026-04-21T14:00:00Z", read: false },
   ];
 }
 
 function buildScrapedData(): any[] {
-  const n = Date.now();
-  const mults: Record<string, number> = { "C-01": 1.07, "C-02": 1.02, "C-03": 0.97, "C-04": 0.93, "C-05": 0.90 };
-  const rows: any[] = [];
-  for (const prod of PRODUCTS) {
-    for (const comp of COMPETITORS) {
-      for (let i = 0; i < 4; i++) {
-        const jitter = 0.98 + Math.random() * 0.04;
-        rows.push({
-          product_id:    prod.product_id,
-          competitor_id: comp.id,
-          price:         Math.round(prod.your_price * (mults[comp.id] ?? 1.0) * jitter),
-          created_at:    new Date(n - i * 7 * 86400000).toISOString(),
-        });
-      }
-    }
-  }
-  return rows;
+  return [
+    { competitor_id: "C-001", product_id: "P-1001", price: 98.70, scraped_at: new Date().toISOString() },
+    { competitor_id: "C-002", product_id: "P-1001", price: 95.10, scraped_at: new Date().toISOString() },
+    { competitor_id: "C-003", product_id: "P-1001", price: 92.00, scraped_at: new Date().toISOString() },
+    { competitor_id: "C-004", product_id: "P-1001", price: 89.50, scraped_at: new Date().toISOString() },
+    { competitor_id: "C-005", product_id: "P-1001", price: 86.20, scraped_at: new Date().toISOString() },
+    { competitor_id: "C-001", product_id: "P-1042", price: 144.99, scraped_at: new Date().toISOString() },
+    { competitor_id: "C-002", product_id: "P-1042", price: 141.00, scraped_at: new Date().toISOString() },
+    { competitor_id: "C-002", product_id: "P-2011", price: 56.00, scraped_at: new Date().toISOString() },
+    { competitor_id: "C-003", product_id: "P-2011", price: 52.50, scraped_at: new Date().toISOString() },
+    { competitor_id: "C-001", product_id: "P-1089", price: 224.00, scraped_at: new Date().toISOString() },
+    { competitor_id: "C-007", product_id: "P-1089", price: 218.00, scraped_at: new Date().toISOString() },
+    { competitor_id: "C-002", product_id: "P-3301", price: 69.00, scraped_at: new Date().toISOString() },
+    { competitor_id: "C-003", product_id: "P-3301", price: 74.00, scraped_at: new Date().toISOString() },
+  ];
 }
 
 function buildRecentEvents(): any[] {
-  const n = Date.now();
   return [
-    { product_id: "P-1001", product_name: "Enterprise CRM License", competitor: "TechVault", old_price: 2160, new_price: 2400, change_pct:  11.1, timestamp: new Date(n -  2*3600000).toISOString() },
-    { product_id: "P-1002", product_name: "Cloud Storage Pro",       competitor: "CloudNine", old_price: 1100, new_price: 1020, change_pct:  -7.3, timestamp: new Date(n -  6*3600000).toISOString() },
-    { product_id: "P-1003", product_name: "API Gateway Plus",        competitor: "DataPrime", old_price: 3800, new_price: 3520, change_pct:  -7.4, timestamp: new Date(n - 14*3600000).toISOString() },
-    { product_id: "P-1004", product_name: "Data Analytics Suite",    competitor: "CyberEdge", old_price: 5600, new_price: 5900, change_pct:   5.4, timestamp: new Date(n - 22*3600000).toISOString() },
-    { product_id: "P-1005", product_name: "Security Shield Pro",     competitor: "InnoSoft",  old_price: 2600, new_price: 2100, change_pct: -19.2, timestamp: new Date(n - 30*3600000).toISOString() },
-    { product_id: "P-1001", product_name: "Enterprise CRM License", competitor: "InnoSoft",  old_price: 2300, new_price: 2450, change_pct:   6.5, timestamp: new Date(n - 48*3600000).toISOString() },
-    { product_id: "P-1002", product_name: "Cloud Storage Pro",       competitor: "CyberEdge", old_price:  980, new_price:  940, change_pct:  -4.1, timestamp: new Date(n - 54*3600000).toISOString() },
+    { product_id: "P-3301", product_name: "BT Mechanical Keyboard Elite", competitor: "AlphaCo", old_price: 76.00, new_price: 69.00, change_pct: -9.2, timestamp: "2026-04-20T10:00:00Z" },
+    { product_id: "P-1001", product_name: "Wireless Headphones X1",      competitor: "BrandZ",  old_price: 91.00, new_price: 98.70, change_pct: 8.5, timestamp: "2026-04-18T10:00:00Z" },
+    { product_id: "P-1042", product_name: "Smart Speaker Plus",           competitor: "NovaTech", old_price: 145.00, new_price: 138.50, change_pct: -4.5, timestamp: "2026-04-17T10:00:00Z" },
   ];
 }
 
@@ -133,7 +119,7 @@ export async function POST(req: Request) {
     results.competitors = e2 ? { ok: false, error: e2.message } : { ok: true, count: COMPETITORS.length };
 
     // 3. Recommendations (clear + insert)
-    await supabaseAdmin.from("recommendations").delete().neq("product_id", "NEVER");
+    await supabaseAdmin.from("recommendations").delete().neq("id", "NEVER");
     const { error: e3 } = await supabaseAdmin.from("recommendations").insert(RECOMMENDATIONS);
     results.recommendations = e3 ? { ok: false, error: e3.message } : { ok: true, count: RECOMMENDATIONS.length };
 
@@ -160,7 +146,7 @@ export async function POST(req: Request) {
 
     // 8. Scraped data (clear + insert)
     const scrapedRows = buildScrapedData();
-    await supabaseAdmin.from("scraped_data").delete().not("id", "is", null);
+    await supabaseAdmin.from("scraped_data").delete().not("product_id", "is", null);
     const { error: e8 } = await supabaseAdmin.from("scraped_data").insert(scrapedRows);
     results.scraped_data = e8 ? { ok: false, error: e8.message } : { ok: true, count: scrapedRows.length };
 
