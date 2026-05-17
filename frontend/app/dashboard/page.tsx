@@ -141,7 +141,7 @@ export default function DashboardPage() {
                
                return (
                  <div key={day} className="flex-1 flex flex-col items-center gap-2 group z-10">
-                   <div className="flex items-end gap-[2px] h-full">
+                   <div className="flex items-end gap-[2px] h-36">
                      <div className="w-[8px] bg-[#378ADD] rounded-t-[1px]" style={{ height: `${(values[0] / 110) * 100}%` }} title={`Your: $${values[0]}`} />
                      <div className="w-[8px] bg-[#888780] rounded-t-[1px]" style={{ height: `${(values[1] / 110) * 100}%` }} title={`Market: $${values[1]}`} />
                      <div className="w-[8px] bg-[#1D9E75] rounded-t-[1px]" style={{ height: `${(values[2] / 110) * 100}%` }} title={`Rec: $${values[2]}`} />

@@ -4,11 +4,11 @@ import { supabaseAdmin } from "../supabaseAdmin";
 // ─── Demo/Seed Data (used as fallback when DB tables are empty) ────────────────
 
 const DEMO_PRODUCTS = [
-  { product_id: "P-1001", name: "Enterprise CRM License", your_price: 2400, category: "Software", sku: "CRM-ENT-01" },
-  { product_id: "P-1002", name: "Cloud Storage Pro", your_price: 1068, category: "Infrastructure", sku: "CSP-PRO-02" },
-  { product_id: "P-1003", name: "API Gateway Plus", your_price: 3588, category: "Infrastructure", sku: "API-GW-03" },
-  { product_id: "P-1004", name: "Data Analytics Suite", your_price: 5988, category: "Analytics", sku: "DAS-PRO-04" },
-  { product_id: "P-1005", name: "Security Shield Pro", your_price: 2388, category: "Security", sku: "SEC-SHP-05" },
+  { id: "P-1001", product_id: "P-1001", name: "Enterprise CRM License", your_price: 2400, category: "Software", sku: "CRM-ENT-01" },
+  { id: "P-1002", product_id: "P-1002", name: "Cloud Storage Pro", your_price: 1068, category: "Infrastructure", sku: "CSP-PRO-02" },
+  { id: "P-1003", product_id: "P-1003", name: "API Gateway Plus", your_price: 3588, category: "Infrastructure", sku: "API-GW-03" },
+  { id: "P-1004", product_id: "P-1004", name: "Data Analytics Suite", your_price: 5988, category: "Analytics", sku: "DAS-PRO-04" },
+  { id: "P-1005", product_id: "P-1005", name: "Security Shield Pro", your_price: 2388, category: "Security", sku: "SEC-SHP-05" },
 ];
 
 const DEMO_COMPETITORS = [
@@ -298,6 +298,7 @@ async function getRealProducts() {
     }
     
     return data.map((p: any) => ({
+      id: p.id,
       product_id: p.product_id ?? p.id ?? "Unknown",
       name: p.name || "Untitled Product",
       your_price: Number(p.your_price ?? p.current_price ?? p.price ?? 0),
@@ -337,7 +338,7 @@ export async function fetchCompetitorList() {
 export async function fetchSnapshotKPIs(productId?: string) {
   try {
     const products = await getRealProducts();
-    const product = products.find((p) => p.product_id === productId) ?? products[0];
+    const product = products.find((p) => p.product_id === productId || p.id === productId) ?? products[0];
     const yourPrice = product.your_price;
 
     // Try fetching latest recommendation for this product
@@ -346,8 +347,10 @@ export async function fetchSnapshotKPIs(productId?: string) {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(1);
-    const pid = productId ?? product.product_id;
-    if (pid) recQuery = recQuery.eq("product_id", pid);
+    
+    if (product.product_id) {
+      recQuery = recQuery.eq("product", product.product_id);
+    }
 
     const { data: recData, error: recError } = await recQuery;
     if (recError) console.warn("[analytics] Error fetching recommendations for KPI:", recError.message);
@@ -357,7 +360,7 @@ export async function fetchSnapshotKPIs(productId?: string) {
     const { data: scrapedData, error: scrapedError } = await supabaseAdmin
       .from("scraped_data")
       .select("*")
-      .eq("product_id", pid)
+      .eq("product_id", product.id)
       .order("created_at", { ascending: false })
       .limit(50);
     
@@ -459,13 +462,13 @@ export async function fetchCompetitorHeatmap() {
 export async function fetchMarketDistribution(productId: string) {
   try {
     const products = await getRealProducts();
-    const product = products.find((p) => p.product_id === productId) ?? products[0];
+    const product = products.find((p) => p.product_id === productId || p.id === productId) ?? products[0];
     const yourPrice = product.your_price;
 
     const { data: scraped, error } = await supabaseAdmin
       .from("scraped_data")
       .select("price")
-      .eq("product_id", productId)
+      .eq("product_id", product.id)
       .order("created_at", { ascending: false })
       .limit(100);
 
@@ -545,7 +548,6 @@ export async function fetchPriceChangeTracker(options?: { limit?: number; thresh
 
     const changes: any[] = [];
     const competitorMap = new Map(competitors.map((c) => [String(c.id), c.name]));
-    const productMap = new Map(products.map((p) => [String(p.product_id), p.name]));
 
     for (const [, rows] of grouped) {
       if (rows.length < 2) continue;
@@ -556,11 +558,15 @@ export async function fetchPriceChangeTracker(options?: { limit?: number; thresh
       if (oldPrice === 0) continue;
       const changePct = Math.round(((newPrice - oldPrice) / oldPrice) * 1000) / 10;
       if (options?.threshold && Math.abs(changePct) < options.threshold) continue;
+
+      const productObj = products.find((p) => String(p.id) === String(newer.product_id));
+      const productIdStr = productObj ? productObj.product_id : String(newer.product_id);
+
       changes.push({
         id: newer.id,
         competitor: competitorMap.get(String(newer.competitor_id)) ?? `Competitor ${newer.competitor_id}`,
-        product_name: productMap.get(String(newer.product_id)) ?? `Product ${newer.product_id}`,
-        product_id: String(newer.product_id),
+        product_name: productObj ? productObj.name : `Product ${newer.product_id}`,
+        product_id: productIdStr,
         old_price: Math.round(oldPrice),
         new_price: Math.round(newPrice),
         change_pct: changePct,
@@ -589,12 +595,14 @@ export async function fetchPriceTrend(options?: { days?: number; productId?: str
     const [products, competitors] = await Promise.all([getRealProducts(), getRealCompetitors()]);
     const fromISO = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
 
+    const product = products.find((p) => p.product_id === options?.productId || p.id === options?.productId) ?? products[0];
+
     let query = supabaseAdmin
       .from("scraped_data")
       .select("*")
       .gte("created_at", fromISO)
       .order("created_at", { ascending: true });
-    if (options?.productId) query = query.eq("product_id", options.productId);
+    if (options?.productId) query = query.eq("product_id", product.id);
 
     const { data: scraped, error } = await query;
 
@@ -604,7 +612,7 @@ export async function fetchPriceTrend(options?: { days?: number; productId?: str
       .select("*")
       .gte("timestamp", fromISO)
       .order("timestamp", { ascending: true });
-    if (options?.productId) ownQuery = ownQuery.eq("product_id", options.productId);
+    if (options?.productId) ownQuery = ownQuery.eq("product_id", product.product_id);
     const { data: ownHistory } = await ownQuery;
 
     if (error && (!ownHistory || ownHistory.length === 0)) {
@@ -612,7 +620,6 @@ export async function fetchPriceTrend(options?: { days?: number; productId?: str
     }
 
     const competitorMap = new Map(competitors.map((c) => [String(c.id), c.name]));
-    const product = products.find((p) => p.product_id === options?.productId) ?? products[0];
     const map = new Map<string, any>();
 
     // Insert own price from price_history
@@ -702,16 +709,19 @@ export async function fetchAuditLog() {
 
 export async function fetchRecommendation(productId?: string) {
   try {
+    const products = await getRealProducts();
+    const product = products.find((p) => p.product_id === productId || p.id === productId);
+    const pid = product ? product.product_id : productId;
+
     let query = supabaseAdmin
       .from("recommendations")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(1);
-    if (productId) query = query.eq("product_id", productId);
+    if (pid) query = query.eq("product", pid);
 
     const { data, error } = await query;
     if (error || !data || data.length === 0) {
-      const products = await getRealProducts();
       return generateDemoRecommendation(productId, products);
     }
 
@@ -723,8 +733,8 @@ export async function fetchRecommendation(productId?: string) {
     const confidence = rawConf > 1 ? rawConf / 100 : rawConf;
 
     return {
-      product_id: r.product_id,
-      product_name: r.product_name ?? r.name ?? "Product",
+      product_id: r.product || pid,
+      product_name: product ? product.name : (r.product_name ?? r.name ?? "Product"),
       current_price: currentPrice,
       recommended_price: recommendedPrice,
       floor_price: Number(r.floor_price ?? Math.round(currentPrice * 0.85)),

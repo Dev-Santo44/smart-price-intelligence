@@ -3,6 +3,7 @@ import { supabaseAdmin } from "../supabaseAdmin";
 
 export type ProductRow = {
     id: string;
+    product_id: string;
     name: string;
     sku: string;
     category: string | null;
@@ -29,7 +30,7 @@ export async function getProducts({
     let query = supabaseAdmin
         .from("products")
         .select(
-            "id,name,sku,category,current_price,updated_at",
+            "id,product_id,name,sku,category,your_price,updated_at",
             { count: "exact" }
         )
         .range(from, to);
@@ -43,32 +44,54 @@ export async function getProducts({
     }
 
     if (sort === "price") {
-        query = query.order("current_price", { ascending: true });
+        query = query.order("your_price", { ascending: true });
     } else {
         query = query.order("name", { ascending: true });
     }
 
     // Apply typing only on output (no functionality changed)
     const { data, error, count } = await query as unknown as {
-        data: ProductRow[];
+        data: any[];
         error: any;
         count: number;
     };
 
     if (error) throw error;
-    return { items: data ?? [], total: count ?? 0 };
+    
+    const items: ProductRow[] = (data ?? []).map(p => ({
+        id: p.id,
+        product_id: p.product_id ?? p.id,
+        name: p.name,
+        sku: p.sku,
+        category: p.category,
+        current_price: Number(p.your_price ?? p.current_price ?? 0),
+        updated_at: p.updated_at
+    }));
+
+    return { items, total: count ?? 0 };
 }
 
 export async function getProductById(productId: string) {
     const { data, error } = await supabaseAdmin
         .from("products")
-        .select("id,name,sku,category,current_price,updated_at")
-        .eq("product_id", productId)
+        .select("id,product_id,name,sku,category,your_price,updated_at")
+        .or(`product_id.eq.${productId},id.eq.${productId}`)
         .single() as unknown as {
-            data: ProductRow;
+            data: any;
             error: any;
         };
 
     if (error) throw error;
-    return data;
+    if (!data) return null;
+
+    const row: ProductRow = {
+        id: data.id,
+        product_id: data.product_id ?? data.id,
+        name: data.name,
+        sku: data.sku,
+        category: data.category,
+        current_price: Number(data.your_price ?? data.current_price ?? 0),
+        updated_at: data.updated_at
+    };
+    return row;
 }

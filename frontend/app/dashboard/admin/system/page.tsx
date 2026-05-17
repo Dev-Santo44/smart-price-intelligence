@@ -1,406 +1,332 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import * as XLSX from "xlsx";
-/**
- * System Admin page for:
- *  - Left: Scraper Engine (choose product -> start scraper)
- *  - Right: AI/ML Engine (add historical data, choose product -> start AIML)
- *
- * Usage:
- *  - Place in app/dashboard/admin/system/page.tsx (App Router) or pages/... (Pages Router)
- *  - Ensure Tailwind is enabled
- *  - Adjust API endpoints in the constants below to match your backend routes
- */
 
-/* CONFIG: change these to your real endpoints */
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
-const PRODUCTS_ENDPOINT = `${API_BASE}/api/products`; // returns product list for scraper choices -> [{ product_id, product_name }]
-const SCRAPED_PRODUCTS_ENDPOINT = `${API_BASE}/api/scraped-products/`; // returns scraped data products -> [{ product_id, product_name }]
-const START_SCRAPER_ENDPOINT = `${API_BASE}/api/scraper/start`; // POST { product_id }
-const START_AIML_ENDPOINT = `${API_BASE}/api/aiml/start`; // POST { product_id }
-const ADD_AIML_DATA_ENDPOINT = `${API_BASE}/api/aiml/add-data`; // POST { product_id, date, value, notes }
-const UPLOAD_AIML_DATA_ENDPOINT = `${API_BASE}/api/aiml/upload-data`;
-
-type ProductOption = {
-    product_id: string;
-    product_name: string;
-};
+type ProductOption = { product_id: string; product_name: string };
 
 export default function AdminSystemPage() {
-    // Scraper state
-    const [products, setProducts] = useState<ProductOption[]>([]);
-    const [scraperChoice, setScraperChoice] = useState<string>("");
+  const [products, setProducts] = useState<ProductOption[]>([]);
+  const [scraperChoice, setScraperChoice] = useState("");
+  const [scrapedProducts, setScrapedProducts] = useState<ProductOption[]>([]);
+  const [aimlChoice, setAimlChoice] = useState("");
+  const [addProduct, setAddProduct] = useState("");
 
-    // AIML state
-    const [scrapedProducts, setScrapedProducts] = useState<ProductOption[]>([]);
-    const [aimlChoice, setAimlChoice] = useState<string>("");
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [loadingScraped, setLoadingScraped] = useState(false);
+  const [scraperRunning, setScraperRunning] = useState(false);
+  const [aimlRunning, setAimlRunning] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
-    // Add data form (for AIML)
-    const [addProduct, setAddProduct] = useState<string>("");
+  const [message, setMessage] = useState<{ type: "info" | "success" | "error"; text: string } | null>(null);
 
+  useEffect(() => {
+    fetchProducts();
+    fetchScraped();
+  }, []);
 
-    const [fileParsing, setFileParsing] = useState(false);
-    const [uploading, setUploading] = useState(false);
-
-
-    // UI/loading
-    const [loadingProducts, setLoadingProducts] = useState(false);
-    const [loadingScrapedProducts, setLoadingScrapedProducts] = useState(false);
-    const [scraperRunning, setScraperRunning] = useState(false);
-    const [aimlRunning, setAimlRunning] = useState(false);
-    const [message, setMessage] = useState<{ type: "info" | "success" | "error"; text: string } | null>(null);
-
-    useEffect(() => {
-        fetchProducts();
-        fetchScrapedProducts();
-    }, []);
-
-    async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        if (!addProduct) {
-            setMessage({ type: "error", text: "Please select a product before uploading a file." });
-            // clear input so user can re-select
-            e.target.value = "";
-            return;
-        }
-
-        setFileParsing(true);
-        setMessage({ type: "info", text: "Parsing file..." });
-
-        try {
-            // read file into ArrayBuffer
-            const arrayBuffer = await file.arrayBuffer();
-            const workbook = XLSX.read(arrayBuffer, { type: "array" });
-
-            // take first sheet by default
-            const firstSheetName = workbook.SheetNames[0];
-            const sheet = workbook.Sheets[firstSheetName];
-
-            // convert to JSON objects (header row => keys)
-            const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: null });
-
-            if (!Array.isArray(jsonData) || jsonData.length === 0) {
-                setMessage({ type: "error", text: "Parsed file contains no rows." });
-                setFileParsing(false);
-                e.target.value = "";
-                return;
-            }
-
-            // optional normalization step could go here (date strings, numeric coercion, column rename, etc.)
-
-            setMessage({ type: "info", text: `Uploading ${jsonData.length} rows...` });
-            setUploading(true);
-
-            const res = await fetch(UPLOAD_AIML_DATA_ENDPOINT, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    product_id: addProduct,
-                    data: jsonData,
-                    metadata: { originalFileName: file.name, sheetName: firstSheetName, rowCount: jsonData.length },
-                }),
-            });
-
-            const resJson = await res.json();
-            if (!res.ok) throw new Error(resJson?.message || `Upload failed (${res.status})`);
-
-            setMessage({ type: "success", text: `Uploaded ${jsonData.length} rows for product ${addProduct}.` });
-
-            // refresh scraped products/existing data list (optional)
-            fetchScrapedProducts();
-        } catch (err: any) {
-            console.error("file upload error", err);
-            setMessage({ type: "error", text: `Failed to parse/upload file: ${err?.message || err}` });
-        } finally {
-            setFileParsing(false);
-            setUploading(false);
-            // clear file input
-            const input = document.getElementById("aiml-file-input") as HTMLInputElement;
-            if (input) input.value = "";
-        }
+  async function fetchProducts() {
+    setLoadingProducts(true);
+    try {
+      const res = await fetch("/api/products");
+      if (!res.ok) throw new Error(`${res.status}`);
+      const raw = await res.json();
+      const arr: ProductOption[] = (Array.isArray(raw) ? raw : []).map((p: any) => ({
+        product_id: p.product_id || p.id,
+        product_name: p.product_name || p.name || p.product_id,
+      }));
+      setProducts(arr);
+      if (arr.length > 0) setScraperChoice(prev => prev || arr[0].product_id);
+    } catch (e: any) {
+      setMessage({ type: "error", text: `Could not load products: ${e.message}` });
+    } finally {
+      setLoadingProducts(false);
     }
+  }
 
-    // Fetch product choices (for Scraper)
-    async function fetchProducts() {
-        setLoadingProducts(true);
-        try {
-            const res = await fetch(PRODUCTS_ENDPOINT);
-            if (!res.ok) throw new Error(`Failed to fetch products (${res.status})`);
-            const data = await res.json();
-            // Expecting array of { product_id, product_name }
-            setProducts(Array.isArray(data) ? data : []);
-            if (Array.isArray(data) && data.length > 0) {
-                setScraperChoice(prev => prev || data[0].product_id);
-            }
-        } catch (err: any) {
-            console.error("fetchProducts err", err);
-            setMessage({ type: "error", text: "Could not load product list. Check PRODUCTS_ENDPOINT." });
-        } finally {
-            setLoadingProducts(false);
-        }
+  async function fetchScraped() {
+    setLoadingScraped(true);
+    try {
+      const res = await fetch("/api/scraped-products");
+      if (!res.ok) throw new Error(`${res.status}`);
+      const arr = await res.json();
+      setScrapedProducts(Array.isArray(arr) ? arr : []);
+      if (Array.isArray(arr) && arr.length > 0) {
+        setAimlChoice(prev => prev || arr[0].product_id);
+        setAddProduct(prev => prev || arr[0].product_id);
+      }
+    } catch (e: any) {
+      setMessage({ type: "error", text: `Could not load scraped products: ${e.message}` });
+    } finally {
+      setLoadingScraped(false);
     }
+  }
 
-    // Fetch scraped product choices (for AIML)
-    async function fetchScrapedProducts() {
-        setLoadingScrapedProducts(true);
-        try {
-            const res = await fetch(SCRAPED_PRODUCTS_ENDPOINT);
-            if (!res.ok) throw new Error(`Failed to fetch scraped products (${res.status})`);
-            const data = await res.json();
-            setScrapedProducts(Array.isArray(data) ? data : []);
-            if (Array.isArray(data) && data.length > 0) {
-                setAimlChoice(prev => prev || data[0].product_id);
-                setAddProduct(prev => prev || data[0].product_id);
-            }
-        } catch (err: any) {
-            console.error("fetchScrapedProducts err", err);
-            setMessage({ type: "error", text: "Could not load scraped product list. Check SCRAPED_PRODUCTS_ENDPOINT." });
-        } finally {
-            setLoadingScrapedProducts(false);
-        }
+  async function handleStartScraper() {
+    if (!scraperChoice) { setMessage({ type: "error", text: "Please select a product." }); return; }
+    setScraperRunning(true);
+    setMessage({ type: "info", text: "🕷️ Generating synthetic competitor price data…" });
+    try {
+      const res = await fetch("/api/scraper/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_id: scraperChoice }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+      setMessage({ type: "success", text: `✅ ${data.message} — ${data.rows_inserted} price rows inserted across ${data.competitors_scraped} competitors.` });
+      setTimeout(fetchScraped, 1200);
+    } catch (e: any) {
+      setMessage({ type: "error", text: `Scraper failed: ${e.message}` });
+    } finally {
+      setScraperRunning(false);
     }
+  }
 
-    // Start scraper for selected product
-    async function handleStartScraper() {
-        if (!scraperChoice) {
-            setMessage({ type: "error", text: "Please choose a product to scrape." });
-            return;
-        }
-        setScraperRunning(true);
-        setMessage({ type: "info", text: "Starting scraper..." });
-        try {
-            const res = await fetch(START_SCRAPER_ENDPOINT, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ product_id: scraperChoice }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data?.message || `Scraper API returned ${res.status}`);
-            setMessage({ type: "success", text: `Scraper started for product ${scraperChoice}.` });
-            // Optionally refresh scraped products after a small delay
-            setTimeout(fetchScrapedProducts, 1500);
-        } catch (err: any) {
-            console.error("startScraper err", err);
-            setMessage({ type: "error", text: `Failed to start scraper: ${err.message || err}` });
-        } finally {
-            setScraperRunning(false);
-        }
+  async function handleStartAIML() {
+    if (!aimlChoice) { setMessage({ type: "error", text: "Please select a scraped product." }); return; }
+    setAimlRunning(true);
+    setMessage({ type: "info", text: "🤖 Running AI/ML model — generating recommendation and price history…" });
+    try {
+      const res = await fetch("/api/aiml/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_id: aimlChoice }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+      const r = data.result?.recommendation;
+      const summary = r
+        ? `Recommended price: $${r.recommended_price} (confidence ${r.confidence}%) — ${r.direction} from current $${r.current_price}`
+        : "Model run complete.";
+      setMessage({ type: "success", text: `✅ ${data.message}. ${summary}` });
+    } catch (e: any) {
+      setMessage({ type: "error", text: `AI/ML failed: ${e.message}` });
+    } finally {
+      setAimlRunning(false);
     }
+  }
 
-    // Start AIML engine for selected product
-    async function handleStartAIML() {
-        if (!aimlChoice) {
-            setMessage({ type: "error", text: "Please choose a scraped product for AIML." });
-            return;
-        }
-        setAimlRunning(true);
-        setMessage({ type: "info", text: "Starting AI/ML engine... This may take a few minutes." });
-        try {
-            const res = await fetch(START_AIML_ENDPOINT, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ product_id: aimlChoice }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data?.message || `AIML API returned ${res.status}`);
-
-            // Show success message with result details
-            const resultMessage = data.result
-                ? `AI/ML model completed successfully! ${JSON.stringify(data.result).substring(0, 100)}...`
-                : `AI/ML model completed successfully for product ${aimlChoice}!`;
-
-            setMessage({ type: "success", text: resultMessage });
-        } catch (err: any) {
-            console.error("startAIML err", err);
-            setMessage({ type: "error", text: `Failed to run AI/ML model: ${err.message || err}` });
-        } finally {
-            setAimlRunning(false);
-        }
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!addProduct) {
+      setMessage({ type: "error", text: "Please select a product before uploading." });
+      e.target.value = "";
+      return;
     }
+    setUploading(true);
+    setMessage({ type: "info", text: "Parsing file…" });
+    try {
+      const { read, utils } = await import("xlsx");
+      const buf = await file.arrayBuffer();
+      const wb = read(buf, { type: "array" });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = utils.sheet_to_json(sheet, { defval: null });
+      if (!rows.length) throw new Error("No rows in file.");
+      setMessage({ type: "info", text: `Uploading ${rows.length} rows…` });
+      const res = await fetch("/api/aiml/upload-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_id: addProduct, data: rows, metadata: { file: file.name } }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result?.message || `HTTP ${res.status}`);
+      setMessage({ type: "success", text: `✅ Uploaded ${rows.length} rows for product ${addProduct}.` });
+      setTimeout(fetchScraped, 800);
+    } catch (e: any) {
+      setMessage({ type: "error", text: `Upload failed: ${e.message}` });
+    } finally {
+      setUploading(false);
+      const inp = document.getElementById("aiml-file-input") as HTMLInputElement;
+      if (inp) inp.value = "";
+    }
+  }
 
-    // Add new historical/product-specific data for AIML (stores to DB)
+  const msgStyle =
+    message?.type === "error"   ? "bg-red-50 border-red-200 text-red-800" :
+    message?.type === "success" ? "bg-green-50 border-green-200 text-green-800" :
+    "bg-blue-50 border-blue-200 text-blue-800";
 
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      <h1 className="text-2xl font-semibold mb-1">System — Scraper &amp; AI/ML Engines</h1>
+      <p className="text-sm text-slate-500 mb-5">
+        Generate synthetic competitor pricing data and AI/ML recommendations for any product — no external APIs required.
+      </p>
 
-    return (
-        <div className="p-6">
-            <h1 className="text-2xl font-semibold mb-4">System — Scraper & AI/ML Engines</h1>
-
-            {/* global message */}
-            {message && (
-                <div
-                    className={`mb-4 p-3 rounded border ${message.type === "error" ? "bg-red-50 border-red-200 text-red-800" : message.type === "success" ? "bg-green-50 border-green-200 text-green-800" : "bg-blue-50 border-blue-200 text-blue-800"
-                        }`}
-                >
-                    {message.text}
-                </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* LEFT: Scraper Engine */}
-                <section className="bg-white dark:bg-slate-800 rounded-2xl shadow p-6">
-                    <h2 className="text-lg font-medium mb-3">Scraper Engine</h2>
-
-                    <div className="text-sm mb-4">
-                        <p className="mb-2">
-                            The Scraper Engine triggers the scraping flow for a single selected product. Choose one product below and press <strong>Start Scraper</strong>.
-                        </p>
-                        <p className="text-xs text-slate-500">
-                            The choice list is loaded from your products table (column: product_name / product_id). The scraper API will be called with the selected product ID.
-                        </p>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Select product to scrape</label>
-                            <div className="mt-1">
-                                {loadingProducts ? (
-                                    <div className="text-sm text-slate-500">Loading products...</div>
-                                ) : (
-                                    <select
-                                        value={scraperChoice}
-                                        onChange={(e) => setScraperChoice(e.target.value)}
-                                        className="w-full rounded-md border p-2"
-                                        aria-label="Select product to scrape"
-                                    >
-                                        {products.length === 0 && <option value="">No products found</option>}
-                                        {products.map((p) => (
-                                            <option key={p.product_id} value={p.product_id}>
-                                                {p.product_name} — {p.product_id}
-                                            </option>
-                                        ))}
-                                    </select>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={handleStartScraper}
-                                disabled={scraperRunning || loadingProducts || !scraperChoice}
-                                className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50"
-                            >
-                                {scraperRunning ? "Starting..." : "Start Scraper"}
-                            </button>
-                            <button
-                                onClick={fetchProducts}
-                                className="inline-flex items-center px-3 py-2 border rounded-lg"
-                            >
-                                Refresh list
-                            </button>
-                        </div>
-                    </div>
-                </section>
-
-                {/* RIGHT: AI/ML Engine */}
-                <section className="bg-white dark:bg-slate-800 rounded-2xl shadow p-6">
-                    <h2 className="text-lg font-medium mb-3">AI / ML Engine</h2>
-
-                    /* 1) Add data section — (Excel upload) */
-                    <div className="mb-5 border rounded-md p-4">
-                        <h3 className="font-semibold mb-2">Add product-specific / historical data</h3>
-                        <p className="text-sm text-slate-500 mb-3">Upload a spreadsheet (XLSX / XLS / CSV). The first sheet will be converted to JSON and saved into the product's data field in the DB.</p>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div>
-                                <label className="text-sm block mb-1">Product</label>
-                                <select value={addProduct} onChange={(e) => setAddProduct(e.target.value)} className="w-full p-2 border rounded-md">
-                                    {loadingScrapedProducts ? (
-                                        <option>Loading...</option>
-                                    ) : scrapedProducts.length === 0 ? (
-                                        <option value="">No scraped products available</option>
-                                    ) : (
-                                        scrapedProducts.map((p) => (
-                                            <option key={p.product_id} value={p.product_id}>
-                                                {p.product_name}
-                                            </option>
-                                        ))
-                                    )}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="text-sm block mb-1">Spreadsheet file</label>
-                                <input
-                                    id="aiml-file-input"
-                                    type="file"
-                                    accept=".xlsx,.xls,.csv"
-                                    onChange={handleFileChange}
-                                    className="w-full"
-                                />
-                            </div>
-
-                            <div className="md:col-span-2 flex items-center gap-2 mt-2">
-                                <button
-                                    type="button"
-                                    disabled={fileParsing || uploading}
-                                    className="px-4 py-2 bg-green-600 text-white rounded-lg disabled:opacity-50"
-                                    onClick={() => {
-                                        // no-op: upload happens when selecting a file; this keeps UI behavior like the previous "Add data" button
-                                        // but remains clickable for accessibility (shows status via disabled state)
-                                    }}
-                                >
-                                    {fileParsing ? "Parsing..." : uploading ? "Uploading..." : "Upload spreadsheet"}
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        // reset input and message
-                                        const input = document.getElementById("aiml-file-input") as HTMLInputElement;
-                                        if (input) input.value = "";
-                                        setMessage(null);
-                                    }}
-                                    className="px-3 py-2 border rounded-lg"
-                                >
-                                    Reset
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={fetchScrapedProducts}
-                                    className="px-3 py-2 border rounded-lg ml-auto"
-                                >
-                                    Refresh products
-                                </button>
-                            </div>
-                        </div>
-
-                        <p className="text-xs text-slate-500 mt-3">
-                            Note: the server receives <code>product_id</code> and <code>data</code> (JSON array). The backend should decide whether to append, merge or replace the product's data.
-                        </p>
-                    </div>
-
-
-                    {/* 2) Choice + Start AIML */}
-                    <div className="mb-2">
-                        <label className="block text-sm font-medium mb-1">Select scraped product to run AI/ML</label>
-                        {loadingScrapedProducts ? (
-                            <div className="text-sm text-slate-500">Loading scraped products...</div>
-                        ) : (
-                            <select value={aimlChoice} onChange={(e) => setAimlChoice(e.target.value)} className="w-full p-2 border rounded-md mb-3">
-                                {scrapedProducts.length === 0 && <option value="">No scraped data products</option>}
-                                {scrapedProducts.map((p) => (
-                                    <option key={p.product_id} value={p.product_id}>
-                                        {p.product_name}
-                                    </option>
-                                ))}
-                            </select>
-                        )}
-                        <div className="flex items-center gap-3">
-                            <button onClick={handleStartAIML} disabled={aimlRunning || !aimlChoice} className="px-4 py-2 bg-indigo-600 text-white rounded-lg">
-                                {aimlRunning ? "Starting..." : "Start AI/ML Engine"}
-                            </button>
-                            <button onClick={fetchScrapedProducts} className="px-3 py-2 border rounded-lg">Refresh scraped list</button>
-                        </div>
-
-                        <p className="text-xs text-slate-500 mt-2">
-                            The AIML engine will be invoked with the selected product id. Your AIML API may pull stored historical entries for training/prediction from the DB.
-                        </p>
-                    </div>
-                </section>
-            </div>
+      {message && (
+        <div className={`mb-5 p-3 rounded-lg border text-sm ${msgStyle}`}>
+          {message.text}
+          <button onClick={() => setMessage(null)} className="ml-3 opacity-60 hover:opacity-100 font-bold">×</button>
         </div>
-    );
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* ── LEFT: Scraper ── */}
+        <section className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-2xl">🕷️</span>
+            <h2 className="text-lg font-semibold">Scraper Engine</h2>
+          </div>
+          <p className="text-sm text-slate-500 mb-4">
+            Generates realistic competitor price data for the selected product and saves it to the database.
+            Prices are synthesised across all 7 competitors with 60 days of historical trend data.
+          </p>
+
+          <label className="block text-sm font-medium mb-1">Select product to scrape</label>
+          {loadingProducts ? (
+            <div className="text-sm text-slate-400 mb-4">Loading products…</div>
+          ) : (
+            <select
+              value={scraperChoice}
+              onChange={e => setScraperChoice(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-2 text-sm mb-4"
+            >
+              {products.length === 0 && <option value="">No products found</option>}
+              {products.map(p => (
+                <option key={p.product_id} value={p.product_id}>
+                  {p.product_name} — {p.product_id}
+                </option>
+              ))}
+            </select>
+          )}
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleStartScraper}
+              disabled={scraperRunning || loadingProducts || !scraperChoice}
+              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg disabled:opacity-50 transition-colors"
+            >
+              {scraperRunning ? "⏳ Running…" : "▶ Start Scraper"}
+            </button>
+            <button
+              onClick={fetchProducts}
+              className="px-4 py-2 border border-slate-200 dark:border-slate-600 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
+              ↻ Refresh list
+            </button>
+          </div>
+
+          {scraperRunning && (
+            <div className="mt-4 bg-indigo-50 dark:bg-indigo-950 rounded-lg p-3 text-xs text-indigo-700 dark:text-indigo-300">
+              Generating 60 days × 7 competitors of price data. This takes a moment…
+            </div>
+          )}
+        </section>
+
+        {/* ── RIGHT: AI/ML ── */}
+        <section className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-2xl">🤖</span>
+            <h2 className="text-lg font-semibold">AI / ML Engine</h2>
+          </div>
+          <p className="text-sm text-slate-500 mb-4">
+            Runs the pricing model for a scraped product. Generates a recommendation with rationale,
+            90 days of price history, and updates model accuracy metrics.
+          </p>
+
+          {/* Upload section */}
+          <div className="mb-5 border border-slate-200 dark:border-slate-600 rounded-xl p-4 bg-slate-50 dark:bg-slate-900">
+            <h3 className="text-sm font-semibold mb-2">📂 Upload Historical Data (optional)</h3>
+            <p className="text-xs text-slate-500 mb-3">
+              Upload a spreadsheet (XLSX / CSV) to add product-specific historical data before running the model.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">Product</label>
+                <select
+                  value={addProduct}
+                  onChange={e => setAddProduct(e.target.value)}
+                  className="w-full p-2 text-sm border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800"
+                >
+                  {products.length === 0 && <option value="">No products</option>}
+                  {products.map(p => (
+                    <option key={p.product_id} value={p.product_id}>{p.product_name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">Spreadsheet file</label>
+                <input
+                  id="aiml-file-input"
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={handleFileChange}
+                  className="w-full text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => document.getElementById("aiml-file-input")?.click()}
+                disabled={uploading}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {uploading ? "⏳ Uploading…" : "⬆ Upload spreadsheet"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const inp = document.getElementById("aiml-file-input") as HTMLInputElement;
+                  if (inp) inp.value = "";
+                  setMessage(null);
+                }}
+                className="px-3 py-2 border border-slate-200 dark:border-slate-600 text-sm rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={fetchScraped}
+                className="px-3 py-2 border border-slate-200 dark:border-slate-600 text-sm rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 ml-auto"
+              >
+                ↻ Refresh
+              </button>
+            </div>
+          </div>
+
+          {/* Start AIML */}
+          <label className="block text-sm font-medium mb-1">Select scraped product to run AI/ML</label>
+          {loadingScraped ? (
+            <div className="text-sm text-slate-400 mb-3">Loading scraped products…</div>
+          ) : (
+            <select
+              value={aimlChoice}
+              onChange={e => setAimlChoice(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-2 text-sm mb-4"
+            >
+              {scrapedProducts.length === 0 && <option value="">No scraped data — run the scraper first</option>}
+              {scrapedProducts.map(p => (
+                <option key={p.product_id} value={p.product_id}>
+                  {p.product_name} — {p.product_id}
+                </option>
+              ))}
+            </select>
+          )}
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleStartAIML}
+              disabled={aimlRunning || !aimlChoice}
+              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg disabled:opacity-50 transition-colors"
+            >
+              {aimlRunning ? "⏳ Running model…" : "▶ Start AI/ML Engine"}
+            </button>
+            <button
+              onClick={fetchScraped}
+              className="px-4 py-2 border border-slate-200 dark:border-slate-600 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
+              ↻ Refresh scraped list
+            </button>
+          </div>
+
+          <p className="text-xs text-slate-400 mt-3">
+            The model generates pricing recommendations, 90-day price history, and updates model accuracy metrics.
+            Results appear immediately in Pricing Analytics.
+          </p>
+        </section>
+      </div>
+    </div>
+  );
 }
